@@ -302,6 +302,15 @@ def _match(
     draw.rectangle((55, 96, 485, 122), fill=(9, 19, 27))
     draw.text((67, 109), f"PLY {record['ply']:02d}  /  {actor}", font=_font(11, True), fill=actor_color, anchor="lm")
     draw.text((475, 109), str(record["move_san"]), font=_font(17, True), fill=INK, anchor="rm")
+    repeats = _repeat_count(run, index)
+    if repeats >= 2:
+        draw.text(
+            (313, 110),
+            f"REPEATED {repeats}x  /  TIE-BROKEN",
+            font=_font(9, True),
+            fill=AMBER,
+            anchor="mm",
+        )
 
     evaluation = int(record["evaluation_after_cp"])
     reward = float(record["shaped_reward"])
@@ -358,22 +367,55 @@ def _network(
         draw.ellipse((x - radius, y - radius, x + radius, y + radius), fill=color)
 
 
+def _outcome_lines(run: VideoRun) -> tuple[str, str]:
+    """Name the recorded ending without softening a loss or inflating a stop."""
+    plies = len(run.moves)
+    termination = str(run.manifest["termination"])
+    result = str(run.manifest["result"])
+    if termination == "MAX_PLIES" or result == "*":
+        return f"{plies}-PLY DEMO", "STOPPED AT THE PLY CAP"
+    readable = termination.replace("_", " ")
+    move_number = (plies + 1) // 2
+    if result == "1/2-1/2":
+        return f"{plies}-PLY FULL GAME", f"DRAWN BY {readable} ON MOVE {move_number}"
+    chessfly_white = str(run.manifest["chessfly_color"]) == "white"
+    won = result == ("1-0" if chessfly_white else "0-1")
+    return (
+        f"{plies}-PLY FULL GAME",
+        f"{'WON' if won else 'LOST'} BY {readable} ON MOVE {move_number}",
+    )
+
+
+def _decision_summary(run: VideoRun) -> tuple[int, float, float]:
+    """Report how many decisions were decoded, and how weakly they were driven."""
+    decisions = [record for record in run.moves if record["actor"] == "chessfly"]
+    if not decisions:
+        return 0, 0.0, 0.0
+    tie_broken = sum(1 for record in decisions if record["tie_break"])
+    spikes = sum(len(record["output_spikes"]) for record in decisions)
+    return len(decisions), 100.0 * tie_broken / len(decisions), spikes / len(decisions)
+
+
+def _repeat_count(run: VideoRun, index: int) -> int:
+    """Count how often a tie-broken Chessfly move has already been replayed."""
+    record = run.moves[index]
+    if record["actor"] != "chessfly" or not record["tie_break"]:
+        return 0
+    return sum(
+        1
+        for earlier in run.moves[: index + 1]
+        if earlier["actor"] == "chessfly"
+        and earlier["move_uci"] == record["move_uci"]
+    )
+
+
 def _result(
     draw: ImageDraw.ImageDraw, run: VideoRun, local: float, span: float
 ) -> None:
+    headline, subtitle = _outcome_lines(run)
     draw.text((34, 120), "WHAT HAPPENED", font=_font(31, True), fill=INK)
-    draw.text(
-        (34, 173),
-        f"{len(run.moves)}-PLY DEMO",
-        font=_font(44, True),
-        fill=CYAN,
-    )
-    draw.text(
-        (34, 224),
-        f"STOPPED AT {run.manifest['termination']}",
-        font=_font(16, True),
-        fill=MUTED,
-    )
+    draw.text((34, 173), headline, font=_font(44, True), fill=CYAN)
+    draw.text((34, 224), subtitle, font=_font(16, True), fill=MUTED)
     rows = (
         ("MALECNS FROZEN", -276.6, CYAN),
         ("FIRST LEGAL", -84.9, MUTED),
@@ -386,6 +428,20 @@ def _result(
         width = int(min(420, abs(value) / 300 * 420))
         draw.rectangle((34, y + 31, 34 + width, y + 43), fill=color)
         draw.text((495, y + 36), f"{value:+.1f}", font=_font(13, True), fill=color, anchor="rm")
+    decisions, tie_percent, mean_spikes = _decision_summary(run)
+    draw.text(
+        (34, 598),
+        f"THIS GAME  /  {decisions} NEURAL DECISIONS",
+        font=_font(11, True),
+        fill=MUTED,
+    )
+    draw.text((34, 620), f"{tie_percent:.0f}% TIE-BROKEN", font=_font(15, True), fill=AMBER)
+    draw.text(
+        (250, 620),
+        f"{mean_spikes:.1f} DN SPIKES / DECISION",
+        font=_font(15, True),
+        fill=CYAN,
+    )
     draw.line((34, 648, 506, 648), fill=(43, 73, 80), width=1)
     draw.text((34, 690), "THE HONEST RESULT", font=_font(12, True), fill=AMBER)
     draw.text((34, 725), "IT RUNS.\nIT DOES NOT YET PLAY WELL.", font=_font(29, True), fill=INK, spacing=7)
