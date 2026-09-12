@@ -18,6 +18,9 @@ ANNOTATION_COLUMNS = (
     "instance",
     "superclass",
     "somaSide",
+    "rootSide",
+    "assignedOlHex1",
+    "assignedOlHex2",
     "status",
 )
 TRANSMITTER_COLUMNS = (

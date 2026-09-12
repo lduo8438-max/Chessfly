@@ -40,6 +40,9 @@ python3 -m venv .venv
 .venv/bin/chessfly smoke --stockfish-elo 1320 --max-plies 20
 .venv/bin/chessfly inspect-data
 .venv/bin/chessfly inspect-graph
+.venv/bin/chessfly compile-graph
+.venv/bin/chessfly build-retina
+.venv/bin/chessfly build-subgraph
 ```
 
 Specify a non-standard Stockfish location with `--stockfish-path`. Each run gets
@@ -69,7 +72,7 @@ is recorded after the move; it is not provided to the frozen move decoder.
 
 ## Roadmap
 
-1. Compile a visual-to-descending subgraph and replace the toy network.
+1. Replace the toy network with the compiled 8,598-neuron reference subgraph.
 2. Add the native event-driven backend required for the full retained graph.
 3. Run frozen, random, and shuffled controls before enabling plasticity.
 4. Render an English 59-second scientific-cinematic video and a full match cut.

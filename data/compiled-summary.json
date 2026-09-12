@@ -1,0 +1,26 @@
+{
+  "dataset": "male-cns:v1.0",
+  "retained_graph": {
+    "neurons": 166700,
+    "directed_connections": 25582938,
+    "synaptic_contacts": 124177617
+  },
+  "retina_projection": {
+    "model": "modal-column-overlapping-viewports-v1",
+    "r1_r6_mapped": 3335,
+    "r8p_mapped": 330,
+    "r8y_mapped": 481,
+    "total_mapped": 4146,
+    "validated_physiology": false
+  },
+  "reference_subgraph": {
+    "maximum_hops": 3,
+    "minimum_connection_weight": 5,
+    "neurons": 8598,
+    "directed_connections": 70308,
+    "synaptic_contacts": 1290996,
+    "mapped_visual_inputs_on_paths": 2147,
+    "descending_outputs_on_paths": 960
+  }
+}
+

@@ -35,6 +35,14 @@ Stockfish adapter 與 run artifact recorder。toy brain 只用於打通真實棋
 rank 8 組。每個合法棋步的分數是四個對應 population normalized firing rate
 的總和；最高分勝出。合法棋步遮罩只排除不合法輸出，不注入 Stockfish 建議。
 
+## Retina display adapter
+
+R1–R6 的座標由其所有 R1–R6→L1/L2/L3 contacts 對 column annotations 加權
+投票，選擇 modal optic column；R8p/R8y 則對所有有 column annotation 的既有
+outgoing targets 做相同推定，再投影到同一組左右眼重疊 viewport。實測映射
+3,335 個 R1–R6、330 個 R8p、481 個 R8y。R1–R6 接收 linear-sRGB luminance，
+R8p 接收 blue、R8y 接收 green。這是 display adapter，不是量測的果蠅視覺生理。
+
 ## 標準化 graph schema
 
 節點至少包含：

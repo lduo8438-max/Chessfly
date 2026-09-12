@@ -7,7 +7,7 @@ dist/
 build/
 *.egg-info/
 data/raw/
+data/compiled/
 runs/
 .env
 .DS_Store
-

@@ -2,6 +2,15 @@
 
 Reference: [Alex Wormuth's Stonkfly post](https://x.com/nftechie_/status/2098012107652391357)
 
+## Creative thesis
+
+- **Visual thesis:** a dark neural chess-control room where the board is the
+  brightest object and every luminous trace corresponds to recorded activity.
+- **Content plan:** one hook, one mechanism, one real match, one measured result,
+  and one explicit scientific boundary.
+- **Motion thesis:** energy travels from board to brain, the neural camera gains
+  depth during each decision, and HUD values switch only when telemetry changes.
+
 The public X page exposes the poster without login: a dark cinematic lab, a
 central fly, luminous monitors, and a live telemetry HUD. Chessfly will use the
 same broad storytelling grammar while creating original assets and a distinct
@@ -33,4 +42,3 @@ chess control-room identity.
 
 Master output: 1080×1920, 30 fps, H.264/AAC, English text, under 59 seconds.
 Spike events drive original synthesized sound; no third-party music is needed.
-

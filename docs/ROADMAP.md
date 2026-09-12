@@ -22,16 +22,18 @@
 完成條件：toy SNN 可與本機 Stockfish 走完整個 smoke match，且每一步能從
 artifact 追溯神經輸出、合法棋步選擇與引擎評分。
 
-## M1 — MaleCNS 子圖（進行中）
+## M1 — MaleCNS retina 與 reference 子圖（已完成）
 
 - [x] 下載並驗證公開 annotation、neurotransmitter 與 connection-weight Feather
 - [x] 重現 166,700 neurons、25,582,938 edges、124,177,617 contacts
-- [ ] 建立 R1–R6/R8 → descending neuron 的八跳子圖
+- [x] 建立 mapped R1–R6/R8 → descending neuron 的三跳 reference 子圖
 - [x] 建立含來源 URL、bytes 與 SHA-256 的本機 provenance manifest
-- [ ] 產生標準化 graph manifest
-- [ ] 對節點數、邊數、孤立節點與權重分布做資料驗證
+- [x] 產生標準化 graph 與 retina manifests
+- [x] 比較 3／4／5／6／8 hops 並記錄實際規模
 
-完成條件：能從同一 query 重建內容雜湊一致的子圖，並清楚列出所有篩選條件。
+完成結果：retina 映射 4,146 個 inputs；三跳、contact≥5 子圖包含 8,598
+neurons、70,308 edges、1,290,996 contacts、2,147 個 path inputs 與 960 個
+path outputs。八跳因膨脹到 160,285 neurons 而不再作為 reference 子圖。
 
 ## M2 — MaleCNS chess baseline
 

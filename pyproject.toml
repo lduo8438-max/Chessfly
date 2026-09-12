@@ -11,14 +11,14 @@ license = {text = "GPL-3.0-or-later"}
 dependencies = [
     "certifi>=2024.2.2",
     "chess>=1.11,<2",
+    "numpy>=1.26,<3",
+    "pillow>=10,<13",
     "pyarrow>=14,<23",
 ]
 
 [project.optional-dependencies]
 video = [
     "matplotlib>=3.8,<4",
-    "numpy>=1.26,<3",
-    "pillow>=10,<13",
 ]
 
 [project.scripts]
