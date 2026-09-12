@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "chessfly"
+version = "0.1.0"
+description = "A wiring-constrained fly-connectome experiment that plays chess"
+requires-python = ">=3.9"
+license = {text = "GPL-3.0-or-later"}
+dependencies = [
+    "certifi>=2024.2.2",
+    "chess>=1.11,<2",
+    "pyarrow>=14,<23",
+]
+
+[project.optional-dependencies]
+video = [
+    "matplotlib>=3.8,<4",
+    "numpy>=1.26,<3",
+    "pillow>=10,<13",
+]
+
+[project.scripts]
+chessfly = "chessfly.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
