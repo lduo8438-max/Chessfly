@@ -28,18 +28,23 @@ chess control-room identity.
 - No fake spikes, fake evaluations, copied footage, or claims that the fly
   understands chess.
 
-## Implemented 30-second social cut
+## Released 10-second cinematic
 
-1. **0–4 s — Hook:** `A fly connectome simulation plays Stockfish.`
-2. **4–9 s — Mechanism:** pixels enter photoreceptors; activity crosses the
-   connectome; 32 descending-neuron groups score legal moves.
-3. **9–25 s — Match:** selected moments from one real logged game. The board,
-   spike raster, move score, and engine evaluation update together.
-4. **25–30 s — Result:** outcome and benchmark controls, followed by
-   `Wiring-constrained experiment. Not a biological chess brain.`
+1. **0–3.8 s — Establish:** slow dolly across an original low-poly fly, physical
+   chessboard, and monitors displaying the exact stimulus and spike raster.
+2. **3.8–6.5 s — Decision:** the recorded `b1 > c3` move lifts and travels across
+   the board as the neural HUD remains visible.
+3. **6.5–10 s — Resolve:** the knight lands, camera closes in, and the scientific
+   boundary remains on screen.
 
-The frozen video does not visualize a learning path: reward is displayed as
-recorded telemetry and the result card explicitly says `PLASTICITY OFF`.
+The HUD is based on a real frozen-controller artifact: 100,595 spikes in 500 ms,
+8,598 mapped neurons, 70,308 retained edges, and two descending-neuron readout
+spikes. Geometry is illustrative and the video makes no biological chess claim.
 
-Master output: 1080×1920, 30 fps, H.264/AAC, English text, 30 seconds. Spike
-events drive original synthesized sound; no third-party music is used.
+Outputs are a 1920×1080 X master and a 1080×1920 Instagram delivery file, both
+30 fps, H.264/AAC, and 10 seconds. Spike events drive original synthesized
+sound; no third-party music or Stonkfly media is used.
+
+The referenced Stonkfly repository contains image-generation direction but no
+video source, scene, model, or rendering pipeline. Chessfly therefore follows
+the public post's broad cinematic grammar without copying its assets.

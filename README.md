@@ -59,6 +59,30 @@ python3 -m venv .venv
 Specify a non-standard Stockfish location with `--stockfish-path`. Each run gets
 its own directory under `runs/` and never overwrites an earlier result.
 
+## Render the cinematic social video
+
+The 10-second cinematic uses the real first-decision telemetry from a frozen
+MaleCNS run. Blender creates an original low-poly laboratory, fly, monitors,
+board, pieces, camera move, and the real `b1 > c3` knight animation. The post
+step adds the recorded spike count/raster and locally synthesized sound.
+
+```bash
+/Applications/Blender.app/Contents/MacOS/Blender --background \
+  --python scripts/blender_chessfly.py -- \
+  --run-dir runs/video-source-v1 \
+  --output runs/cinematic/frames/frame- \
+  --save-blend runs/cinematic/chessfly-cinematic.blend
+
+.venv/bin/python scripts/cinematic_post.py \
+  --frames runs/cinematic/frames \
+  --run-dir runs/video-source-v1 \
+  --output runs/cinematic/chessfly-cinematic-x.mp4 \
+  --instagram-output runs/cinematic/chessfly-cinematic-instagram.mp4
+```
+
+Deliverables are H.264/AAC at 30 fps: a 1920×1080 X master and a 1080×1920
+Instagram version. The scene is illustrative; the HUD is measured telemetry.
+
 ## How a move is selected
 
 ```text
@@ -86,7 +110,7 @@ is recorded after the move; it is not provided to the frozen move decoder.
 1. Expand the frozen benchmark across readout seeds and full games.
 2. Add the native event-driven backend required for the full retained graph.
 3. Add plasticity only after frozen and shuffled controls are stable.
-4. Render an English 59-second scientific-cinematic video and a full match cut.
+4. Extend the released 10-second cinematic into a full-match scientific cut.
 
 See [the architecture](docs/ARCHITECTURE.md), [roadmap](docs/ROADMAP.md),
 [model card](docs/MODEL.md), [source context](docs/CONTEXT.md), and
