@@ -51,9 +51,17 @@ class StockfishOpponent:
             raise RuntimeError("Stockfish returned no move for a live position")
         return result.move
 
-    def evaluate_cp(self, board: chess.Board, pov: chess.Color) -> int:
+    def evaluate_cp(
+        self, board: chess.Board, pov: chess.Color, depth: int | None = None
+    ) -> int:
+        if depth is not None and depth <= 0:
+            raise ValueError("analysis depth must be positive")
         info = self.engine.analyse(
-            board, chess.engine.Limit(time=self.config.movetime_ms / 1000.0)
+            board,
+            chess.engine.Limit(
+                depth=depth,
+                time=None if depth is not None else self.config.movetime_ms / 1000.0,
+            ),
         )
         score = info["score"].pov(pov).score(mate_score=100000)
         if score is None:
@@ -68,4 +76,3 @@ class StockfishOpponent:
 
     def __exit__(self, exc_type, exc, traceback) -> None:
         self.close()
-

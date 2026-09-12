@@ -24,9 +24,17 @@ environment ──observation──► encoder        ▼
                 recorder / evaluator
 ```
 
-目前已建立 `SNN reference engine`、32-channel chess decoder、toy chess brain、
-Stockfish adapter 與 run artifact recorder。toy brain 只用於打通真實棋規、UCI、
-神經 spike 與記錄路徑，所有輸出都標記為 `toy-not-male-cns`。
+目前已建立純 Python reference engine、向量化 NumPy MaleCNS subgraph engine、
+32-channel chess decoder、Stockfish adapter 與 run artifact recorder。toy brain
+只用於 smoke test，所有輸出都標記為 `toy-not-male-cns`。
+
+## Frozen runtime
+
+Reference 子圖包含 8,598 neurons 與 70,308 edges。NumPy runtime 以 0.1 ms
+同步步進，使用固定 1.8 ms delay queue、5 ms synaptic decay、20 ms membrane
+decay、2.2 ms refractory period，並將每條 edge 的 contact count 乘以 0.275。
+每次 500 ms decision 另輸出 10 ms bins 的全子圖 spike raster。詳細假設與首輪
+控制結果見 `docs/MODEL.md`。
 
 ## Chess move interface
 

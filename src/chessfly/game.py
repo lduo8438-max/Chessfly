@@ -5,14 +5,27 @@ from __future__ import annotations
 import json
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Protocol
 
 import chess
 import chess.pgn
 
 from .stockfish import StockfishOpponent
 from .reward import stockfish_shaped_reward
-from .toy_brain import OUTPUT_START, ToyChessBrain
+
+from .chess_control import NeuralDecision
+
+
+class ChessBrain(Protocol):
+    mode: str
+    display_name: str
+    output_neuron_indices: frozenset[int]
+
+    def decide(
+        self, board: chess.Board
+    ) -> tuple[NeuralDecision, list[tuple[int, ...]]]: ...
+
+    def describe(self) -> dict[str, object]: ...
 
 
 @dataclass(frozen=True)
@@ -42,7 +55,7 @@ class GameResult:
 
 
 def play_game(
-    brain: ToyChessBrain,
+    brain: ChessBrain,
     stockfish: StockfishOpponent,
     run_dir: Path,
     chessfly_color: chess.Color = chess.WHITE,
@@ -53,10 +66,10 @@ def play_game(
     run_dir.mkdir(parents=True, exist_ok=False)
     board = chess.Board()
     game = chess.pgn.Game()
-    game.headers["Event"] = "Chessfly smoke test"
-    game.headers["White"] = "Chessfly (toy)" if chessfly_color else "Stockfish"
-    game.headers["Black"] = "Stockfish" if chessfly_color else "Chessfly (toy)"
-    game.headers["ChessflyMode"] = "toy-not-male-cns"
+    game.headers["Event"] = "Chessfly versus Stockfish"
+    game.headers["White"] = brain.display_name if chessfly_color else "Stockfish"
+    game.headers["Black"] = "Stockfish" if chessfly_color else brain.display_name
+    game.headers["ChessflyMode"] = brain.mode
     node = game
     records = []
 
@@ -74,8 +87,14 @@ def play_game(
             silent = decision.silent
             tie_break = decision.tie_break
             output_spikes = tuple(
-                spike for frame in frames for spike in frame if spike >= OUTPUT_START
+                spike
+                for frame in frames
+                for spike in frame
+                if spike in brain.output_neuron_indices
             )
+            exporter = getattr(brain, "export_decision_artifact", None)
+            if exporter is not None:
+                exporter(run_dir, ply)
             actor = "chessfly"
         else:
             move = stockfish.play(board)
@@ -133,7 +152,8 @@ def play_game(
             handle.write(json.dumps(asdict(record), sort_keys=True) + "\n")
     manifest = {
         "schema_version": 1,
-        "mode": "toy-not-male-cns",
+        "mode": brain.mode,
+        "brain": brain.describe(),
         "result": result,
         "termination": termination,
         "plies": len(records),

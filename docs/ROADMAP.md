@@ -35,14 +35,19 @@ artifact 追溯神經輸出、合法棋步選擇與引擎評分。
 neurons、70,308 edges、1,290,996 contacts、2,147 個 path inputs 與 960 個
 path outputs。八跳因膨脹到 160,285 neurons 而不再作為 reference 子圖。
 
-## M2 — MaleCNS chess baseline
+## M2 — MaleCNS chess baseline（已完成）
 
-- [ ] 棋盤 RGB → R1–R6 luminance / R8 color 刺激
-- [ ] descending population → 32-channel chess decoder
-- [ ] 記錄 spike raster、動作、reward 與 episode seed
-- [ ] 與隨機、固定及 shuffled-connectome baseline 比較
+- [x] 棋盤 RGB → R1–R6 luminance / R8 color 刺激
+- [x] descending population → 32-channel chess decoder
+- [x] 記錄 spike raster、動作、reward 與 episode seed
+- [x] 與隨機、固定及 shuffled-connectome baseline 比較
+- [x] 100 個 readout seeds 的重播與分布報告
 
 完成條件：100 個固定 seed 可重播，且報告不只呈現最佳一次結果。
+
+完成結果：10-position depth-10 工程基線與 100-seed readout sweep 均已輸出。
+100 個 seed 可精確重播並產生 13 種合法起手，但每個 500 ms decision 只有
+2 個 descending spikes；這個稀疏限制保留在報告，不宣稱已展現棋力。
 
 ## M3 — 可塑性
 

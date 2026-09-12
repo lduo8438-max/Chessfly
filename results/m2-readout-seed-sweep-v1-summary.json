@@ -1,0 +1,26 @@
+{
+  "exact_replay_verified": true,
+  "fen": "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+  "move_counts": {
+    "a2a3": 45,
+    "a2a4": 3,
+    "b1a3": 4,
+    "b1c3": 6,
+    "b2b3": 2,
+    "c2c3": 2,
+    "d2d3": 11,
+    "e2e3": 5,
+    "f2f3": 8,
+    "g1f3": 7,
+    "g1h3": 1,
+    "g2g3": 4,
+    "h2h3": 2
+  },
+  "readout_spikes": 2,
+  "schema_version": 1,
+  "scope": "Readout assignment sweep over one frozen neural response; not independent games.",
+  "seeds": 100,
+  "silent_fraction": 0.0,
+  "start_seed": 0,
+  "unique_moves": 13
+}

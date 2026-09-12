@@ -39,6 +39,8 @@ def _output_channels(input_neuron: int) -> tuple[int, int]:
 class ToyChessBrain:
     """Run a real LIF decision path without claiming MaleCNS provenance."""
 
+    mode = "toy-not-male-cns"
+    display_name = "Chessfly (toy)"
     window_ms = 3.0
 
     def __init__(self) -> None:
@@ -57,6 +59,18 @@ class ToyChessBrain:
             channel: (OUTPUT_START + index,) for index, channel in enumerate(CHANNELS)
         }
         self.decoder = ChessMoveDecoder(populations)
+        self.output_neuron_indices = frozenset(
+            range(OUTPUT_START, OUTPUT_START + OUTPUT_COUNT)
+        )
+
+    def describe(self) -> dict[str, object]:
+        return {
+            "mode": self.mode,
+            "neurons": self.network.neuron_count,
+            "edges": len(self.network.synapses),
+            "window_ms": self.window_ms,
+            "male_cns": False,
+        }
 
     def decide(self, board: chess.Board) -> tuple[NeuralDecision, list[tuple[int, ...]]]:
         self.network.reset()
@@ -66,4 +80,3 @@ class ToyChessBrain:
         }
         frames = [self.network.step(drive), self.network.step(), self.network.step()]
         return self.decoder.decode(board, frames, self.window_ms), frames
-

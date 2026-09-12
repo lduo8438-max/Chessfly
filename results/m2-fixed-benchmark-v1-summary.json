@@ -1,0 +1,45 @@
+{
+  "controllers": [
+    {
+      "controller": "fixed-first-legal",
+      "mean_evaluation_delta_cp": -84.9,
+      "mean_readout_spikes": null,
+      "median_evaluation_delta_cp": -74.0,
+      "positions": 10,
+      "silent_fraction": null
+    },
+    {
+      "controller": "male-cns-frozen",
+      "mean_evaluation_delta_cp": -276.6,
+      "mean_readout_spikes": 2.0,
+      "median_evaluation_delta_cp": -110.5,
+      "positions": 10,
+      "silent_fraction": 0.0
+    },
+    {
+      "controller": "male-cns-shuffled",
+      "mean_evaluation_delta_cp": -84.9,
+      "mean_readout_spikes": 0.0,
+      "median_evaluation_delta_cp": -74.0,
+      "positions": 10,
+      "silent_fraction": 1.0
+    },
+    {
+      "controller": "random-seed-20260912",
+      "mean_evaluation_delta_cp": -114.7,
+      "mean_readout_spikes": null,
+      "median_evaluation_delta_cp": -100.0,
+      "positions": 10,
+      "silent_fraction": null
+    }
+  ],
+  "episode_seed": 20260912,
+  "metric": "Stockfish centipawn change from side-to-move POV; higher is better",
+  "positions": 10,
+  "random_seed": 20260912,
+  "schema_version": 1,
+  "selection_warning": "This small suite is an engineering check, not evidence of chess skill.",
+  "shuffle_seed": 20260912,
+  "stockfish_evaluation_depth": 10,
+  "suite": "frozen-opening-positions-v1"
+}

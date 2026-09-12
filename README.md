@@ -14,7 +14,7 @@ model choices that must be tested against controls.
 
 ## Current milestone
 
-The first implementation milestone is live:
+The frozen MaleCNS reference baseline is live:
 
 - deterministic LIF reference engine;
 - a 32-channel `from file / from rank / to file / to rank` move decoder;
@@ -26,6 +26,10 @@ The first implementation milestone is live:
 - streamed reconstruction of the retained graph: 166,700 neurons, 25,582,938
   directed connections, and 124,177,617 synaptic contacts;
 - a defined social-video direction based only on real run telemetry.
+- a vectorized 8,598-neuron / 70,308-edge MaleCNS LIF runtime;
+- mapped R1–R6/R8 board input and 960-neuron descending readout;
+- 10 ms spike rasters, exact stimuli, retina samples, move logs and PGN;
+- fixed-position comparisons against fixed, random and shuffled-topology controls.
 
 The toy mode is deliberately labeled `toy-not-male-cns` in every output.
 
@@ -43,6 +47,10 @@ python3 -m venv .venv
 .venv/bin/chessfly compile-graph
 .venv/bin/chessfly build-retina
 .venv/bin/chessfly build-subgraph
+.venv/bin/chessfly male-cns-decision
+.venv/bin/chessfly match --network male-cns --max-plies 20
+.venv/bin/chessfly benchmark --positions 10
+.venv/bin/chessfly seed-sweep --count 100
 ```
 
 Specify a non-standard Stockfish location with `--stockfish-path`. Each run gets
@@ -72,13 +80,14 @@ is recorded after the move; it is not provided to the frozen move decoder.
 
 ## Roadmap
 
-1. Replace the toy network with the compiled 8,598-neuron reference subgraph.
+1. Expand the frozen benchmark across readout seeds and full games.
 2. Add the native event-driven backend required for the full retained graph.
-3. Run frozen, random, and shuffled controls before enabling plasticity.
+3. Add plasticity only after frozen and shuffled controls are stable.
 4. Render an English 59-second scientific-cinematic video and a full match cut.
 
 See [the architecture](docs/ARCHITECTURE.md), [roadmap](docs/ROADMAP.md),
-[source context](docs/CONTEXT.md), and [video direction](docs/VIDEO_STYLE.md).
+[model card](docs/MODEL.md), [source context](docs/CONTEXT.md), and
+[video direction](docs/VIDEO_STYLE.md).
 
 ## Data and licensing
 
