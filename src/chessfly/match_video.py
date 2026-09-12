@@ -113,12 +113,19 @@ def render_match_video(
     return output
 
 
-def _load_plates(frames_dir: Path) -> tuple[Image.Image, ...]:
-    """Hold the plates at their rendered size; upscaling all of them costs GBs."""
+def _load_plates(frames_dir: Path) -> tuple[Path, ...]:
+    """List the plates. A full-length 1920x1080 sequence is gigabytes decoded,
+    so frames are opened one at a time while encoding rather than held in RAM."""
     paths = sorted(Path(frames_dir).glob("frame-*.png"))
     if not paths:
         raise FileNotFoundError(f"no cinematic plates found in {frames_dir}")
-    return tuple(Image.open(path).convert("RGB") for path in paths)
+    return tuple(paths)
+
+
+def _open_plate(path: Path) -> Image.Image:
+    with Image.open(path) as handle:
+        image = handle.convert("RGB")
+    return image if image.size == MASTER else image.resize(MASTER, Image.Resampling.LANCZOS)
 
 
 def _pacing(count: int) -> np.ndarray:
@@ -255,12 +262,7 @@ def _render_frame(
     timestamp: float,
     duration: float,
 ) -> Image.Image:
-    plate = _plate(plates, timestamp)
-    image = (
-        plate.copy()
-        if plate.size == MASTER
-        else plate.resize(MASTER, Image.Resampling.LANCZOS)
-    )
+    image = _open_plate(_plate(plates, timestamp))
     draw = ImageDraw.Draw(image, "RGBA")
     index = _ply_index(weights, timestamp / duration)
     index = min(index, len(run.moves) - 1)
@@ -287,7 +289,9 @@ def _scene_chrome(draw: ImageDraw.ImageDraw, run: VideoRun, timestamp: float) ->
         font=_font(16, True),
         fill=MUTED,
     )
-    draw.text((1240, 40), f"T+{timestamp:05.1f}", font=_font(16), fill=MUTED, anchor="ra")
+    draw.text(
+        (1256, 996), f"T+{timestamp:05.1f}", font=_font(16), fill=MUTED, anchor="ra"
+    )
 
 
 def _panel(

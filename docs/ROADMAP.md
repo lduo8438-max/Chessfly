@@ -64,7 +64,7 @@ path outputs。八跳因膨脹到 160,285 neurons 而不再作為 reference 子�
 - [ ] 完整 retained MaleCNS graph 模式
 - [ ] 100-FEN benchmark 與 20 場對局 controls
 - [x] 以真實 run telemetry 生成 9:16 social cut
-- [ ] 生成 16:9 full match
+- [x] 生成 16:9 full match（分屏：3D 對局 + 即時棋盤與腦圖面板）
 
 ## 暫不進行
 

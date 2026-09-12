@@ -50,9 +50,13 @@ sound; no third-party music or Stonkfly media is used.
 The match cut reuses the cinematic plates and adds a single instrument screen so
 a whole game stays readable:
 
-- **Left two thirds** — the rendered laboratory plate, ping-ponged so a long
-  match never cuts abruptly. The 3D board stays at the pose it was rendered in;
-  it is set dressing, and the live position is the panel's job.
+- **Left two thirds** — the rendered laboratory plate. The 3D board plays the
+  same recorded game as the panel: pieces lift, travel and land, captures shrink
+  away, and a promotion swaps the pawn body for a queen. A plate sequence
+  shorter than the cut ping-pongs rather than cutting abruptly.
+- **Pieces** — low-poly Staunton silhouettes built from primitives (base, stem,
+  collar, and a head per type), lit by a soft key over the board so they read as
+  solid rather than as dark cones.
 - **Right third** — an opaque screen. A 520 px board sits at the top, the
   fly-brain activity diagram below it, and the raw counters at the foot.
 - **Brain diagram** — three real groups (retina inputs, SNN core, descending

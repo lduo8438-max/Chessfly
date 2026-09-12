@@ -121,13 +121,34 @@ The match cut keeps the cinematic plates on the left two thirds and adds a
 dedicated instrument screen on the right third: a readable board above, and a
 fly-brain activity diagram below, both driven by one recorded run.
 
+The 3D board plays the recorded game. `match-plan` resolves every ply into
+piece moves, captures, castling, en passant and promotions with exact frame
+numbers, and the Blender script only applies those keyframes — so the plates and
+the overlay panel step on one pacing curve and cannot drift apart.
+
 ```bash
+.venv/bin/chessfly match-plan \
+  --run-dir runs/full-game-v1 \
+  --output runs/full-game-v1/plan.json \
+  --duration 60 --fps 30
+
+/Applications/Blender.app/Contents/MacOS/Blender --background \
+  --python scripts/blender_chessfly.py -- \
+  --run-dir runs/full-game-v1 \
+  --plan runs/full-game-v1/plan.json \
+  --output runs/cinematic-full-game/frames/frame- \
+  --width 1920 --height 1080
+
 .venv/bin/chessfly render-match-video \
   --run-dir runs/full-game-v1 \
-  --frames runs/cinematic/frames \
+  --frames runs/cinematic-full-game/frames \
   --duration 60 \
   --output runs/chessfly-match-v1.mp4
 ```
+
+Without `--plan` the Blender script still builds the static 10-second cinematic.
+Plates are streamed from disk one frame at a time while encoding; a full-length
+1920×1080 sequence is gigabytes once decoded.
 
 Closing plies are held longer than the middlegame so a checkmate does not flash
 past, Stockfish replies hold the last neural frame and label it `HELD`, and node

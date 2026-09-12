@@ -33,6 +33,18 @@ def arguments() -> argparse.Namespace:
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--preview", action="store_true")
     parser.add_argument("--save-blend", type=Path)
+    parser.add_argument(
+        "--plan",
+        type=Path,
+        help="animation plan from `chessfly match-plan`; plays the whole game",
+    )
+    parser.add_argument("--width", type=int, default=1280)
+    parser.add_argument("--height", type=int, default=720)
+    parser.add_argument("--samples", type=int, default=48)
+    parser.add_argument("--preview-frame", type=int, default=220)
+    parser.add_argument("--frame-start", type=int)
+    parser.add_argument("--frame-end", type=int)
+    parser.add_argument("--yaw", type=float, default=-0.22)
     return parser.parse_args(raw)
 
 
@@ -260,19 +272,118 @@ def add_fly(materials: dict[str, bpy.types.Material]) -> bpy.types.Object:
     return root
 
 
-def parse_fen(fen: str) -> dict[str, str]:
-    rows = fen.split()[0].split("/")
-    pieces = {}
-    for row_index, row in enumerate(rows):
-        file_index = 0
-        for value in row:
-            if value.isdigit():
-                file_index += int(value)
-            else:
-                square = f"{'abcdefgh'[file_index]}{8 - row_index}"
-                pieces[square] = value
-                file_index += 1
-    return pieces
+def _piece_parts(kind: str, facing: float) -> list[tuple]:
+    """Describe one Staunton-ish low-poly piece as primitives in local space.
+
+    Each entry is ("cone"|"ball"|"box", parameters). Keeping the description
+    declarative makes the six silhouettes readable and easy to tune.
+    """
+    parts: list[tuple] = [
+        ("cone", 0.118, 0.106, 0.034, 0.017, 20),
+        ("cone", 0.102, 0.074, 0.048, 0.058, 20),
+    ]
+    if kind == "pawn":
+        parts += [
+            ("cone", 0.050, 0.042, 0.098, 0.131, 16),
+            ("cone", 0.064, 0.064, 0.015, 0.188, 16),
+            ("ball", 0.059, 0.239, (1.0, 1.0, 0.94)),
+        ]
+    elif kind == "rook":
+        parts += [
+            ("cone", 0.064, 0.072, 0.132, 0.148, 16),
+            ("cone", 0.088, 0.088, 0.044, 0.236, 16),
+        ]
+        for dx, dy in ((0.056, 0.0), (-0.056, 0.0), (0.0, 0.056), (0.0, -0.056)):
+            parts.append(("box", 0.020, 0.020, 0.023, 0.270, dx, dy, 0.0))
+    elif kind == "bishop":
+        parts += [
+            ("cone", 0.056, 0.040, 0.152, 0.158, 16),
+            ("cone", 0.069, 0.069, 0.014, 0.243, 16),
+            ("cone", 0.058, 0.009, 0.086, 0.293, 16),
+            ("ball", 0.021, 0.345, (1.0, 1.0, 1.0)),
+        ]
+    elif kind == "knight":
+        parts += [
+            ("cone", 0.062, 0.056, 0.092, 0.128, 16),
+            ("box", 0.052, 0.040, 0.062, 0.232, 0.0, 0.0, 0.0),
+            ("box", 0.042, 0.056, 0.034, 0.288, 0.0, facing * 0.030, 0.0),
+            ("box", 0.030, 0.040, 0.024, 0.318, 0.0, facing * 0.052, 0.0),
+            ("box", 0.013, 0.013, 0.026, 0.330, facing * -0.022, facing * -0.026, 0.0),
+            ("box", 0.013, 0.013, 0.026, 0.330, facing * 0.022, facing * -0.026, 0.0),
+        ]
+    elif kind == "queen":
+        parts += [
+            ("cone", 0.058, 0.044, 0.182, 0.173, 16),
+            ("cone", 0.080, 0.080, 0.016, 0.272, 16),
+            ("ball", 0.050, 0.314, (1.0, 1.0, 0.78)),
+        ]
+        for index in range(6):
+            angle = index * math.tau / 6
+            parts.append(
+                (
+                    "ball",
+                    0.017,
+                    0.350,
+                    (1.0, 1.0, 1.0),
+                    0.046 * math.cos(angle),
+                    0.046 * math.sin(angle),
+                )
+            )
+        parts.append(("ball", 0.020, 0.374, (1.0, 1.0, 1.0)))
+    else:  # king
+        parts += [
+            ("cone", 0.058, 0.046, 0.198, 0.181, 16),
+            ("cone", 0.082, 0.082, 0.016, 0.288, 16),
+            ("ball", 0.049, 0.330, (1.0, 1.0, 0.82)),
+            ("box", 0.011, 0.011, 0.040, 0.398, 0.0, 0.0, 0.0),
+            ("box", 0.031, 0.011, 0.011, 0.390, 0.0, 0.0, 0.0),
+        ]
+    return parts
+
+
+def _build_body(
+    name: str,
+    kind: str,
+    facing: float,
+    mat: bpy.types.Material,
+    root: bpy.types.Object,
+) -> bpy.types.Object:
+    """Build one piece body under its own empty so promotion can swap bodies."""
+    body = bpy.data.objects.new(name, None)
+    body.location = (0, 0, 0)
+    bpy.context.collection.objects.link(body)
+    body.parent = root
+    for part in _piece_parts(kind, facing):
+        if part[0] == "cone":
+            _, radius1, radius2, depth, zc, vertices = part
+            bpy.ops.mesh.primitive_cone_add(
+                vertices=vertices,
+                radius1=radius1,
+                radius2=radius2,
+                depth=depth,
+                location=(0, 0, 0),
+            )
+            obj = bpy.context.object
+            obj.location = (0, 0, zc)
+        elif part[0] == "ball":
+            radius, zc, scale = part[1], part[2], part[3]
+            dx = part[4] if len(part) > 4 else 0.0
+            dy = part[5] if len(part) > 5 else 0.0
+            bpy.ops.mesh.primitive_ico_sphere_add(subdivisions=2, radius=radius)
+            obj = bpy.context.object
+            obj.location = (dx, dy, zc)
+            obj.scale = scale
+        else:
+            _, sx, sy, sz, zc, dx, dy, rot = part
+            bpy.ops.mesh.primitive_cube_add(location=(0, 0, 0))
+            obj = bpy.context.object
+            obj.location = (dx, dy, zc)
+            obj.scale = (sx, sy, sz)
+            obj.rotation_euler[2] = rot
+        obj.name = f"{name}-{part[0]}"
+        obj.data.materials.append(mat)
+        obj.parent = body
+    return body
 
 
 def square_location(square: str) -> tuple[float, float, float]:
@@ -282,65 +393,113 @@ def square_location(square: str) -> tuple[float, float, float]:
 
 
 def add_piece(
-    square: str,
-    symbol: str,
+    piece: dict,
+    promotes_to: str | None,
     mats: dict[str, bpy.types.Material],
-) -> bpy.types.Object:
-    x, y, z = square_location(square)
-    root = bpy.data.objects.new(f"piece-{square}", None)
-    root.location = (0, 0, 0)
+) -> dict:
+    """Place one piece, with a second hidden body when it later promotes."""
+    root = bpy.data.objects.new(f"piece-{piece['id']}", None)
+    root.location = square_location(piece["square"])
     bpy.context.collection.objects.link(root)
-    color = mats["piece-white"] if symbol.isupper() else mats["piece-black"]
-    kind = symbol.lower()
-    heights = {"p": 0.28, "n": 0.39, "b": 0.43, "r": 0.38, "q": 0.52, "k": 0.56}
-    height = heights[kind]
-    bpy.ops.mesh.primitive_cylinder_add(vertices=12, radius=0.105, depth=0.07, location=(x, y, z + 0.035))
-    base = bpy.context.object
-    base.data.materials.append(color)
-    base.parent = root
-    if kind == "n":
-        body = ico(f"knight-{square}", (x + 0.025, y, z + 0.22), (0.11, 0.09, 0.22), color, 1)
-        body.rotation_euler[1] = -0.35
-    elif kind in ("q", "k"):
-        bpy.ops.mesh.primitive_cone_add(vertices=12, radius1=0.11, radius2=0.065, depth=height * 0.62, location=(x, y, z + height * 0.36))
-        body = bpy.context.object
-        body.data.materials.append(color)
-        crown = ico(f"crown-{square}", (x, y, z + height * 0.74), (0.09, 0.09, 0.08), color, 1)
-        crown.parent = root
-    else:
-        bpy.ops.mesh.primitive_cone_add(vertices=12, radius1=0.09, radius2=0.055, depth=height * 0.58, location=(x, y, z + height * 0.34))
-        body = bpy.context.object
-        body.data.materials.append(color)
-        cap = ico(f"cap-{square}", (x, y, z + height * 0.68), (0.075, 0.075, 0.075), color, 1)
-        cap.parent = root
-    body.parent = root
-    return root
+    mat = mats["piece-white"] if piece["color"] == "white" else mats["piece-black"]
+    facing = 1.0 if piece["color"] == "white" else -1.0
+    bodies = {
+        "main": _build_body(f"{piece['id']}-{piece['kind']}", piece["kind"], facing, mat, root)
+    }
+    if promotes_to:
+        promoted = _build_body(
+            f"{piece['id']}-{promotes_to}", promotes_to, facing, mat, root
+        )
+        promoted.scale = (0.001, 0.001, 0.001)
+        promoted.keyframe_insert("scale", frame=1)
+        bodies["promoted"] = promoted
+    return {"root": root, "bodies": bodies}
 
 
-def add_chessboard(run_dir: Path, mats: dict[str, bpy.types.Material]) -> None:
-    records = [json.loads(line) for line in (run_dir / "moves.jsonl").read_text().splitlines()]
-    move = next(record for record in records if record["actor"] == "chessfly" and record["ply"] > 1)
-    pieces = parse_fen(move["fen_before"])
+def add_board(mats: dict[str, bpy.types.Material]) -> None:
     for rank in range(8):
         for file_index in range(8):
             x, y, z = square_location(f"{'abcdefgh'[file_index]}{rank + 1}")
             mat = mats["board-light"] if (file_index + rank) % 2 else mats["board-dark"]
             cube(f"tile-{file_index}-{rank}", (x, y, z - 0.055), (0.175, 0.175, 0.055), mat, 0.018)
     cube("board-base", (0.78, -0.45, 1.275), (1.52, 1.52, 0.055), mats["frame"], 0.08)
-    roots = {square: add_piece(square, symbol, mats) for square, symbol in pieces.items()}
-    uci = str(move["move_uci"])
-    moving = roots.get(uci[:2])
-    if moving:
-        start = Vector(square_location(uci[:2]))
-        end = Vector(square_location(uci[2:4]))
-        delta = end - start
-        for frame, location in (
-            (115, Vector((0, 0, 0))),
-            (155, delta / 2 + Vector((0, 0, 0.42))),
-            (195, delta),
-        ):
-            moving.location = location
-            moving.keyframe_insert("location", frame=frame)
+
+
+def add_chessboard(plan: dict, mats: dict[str, bpy.types.Material]) -> None:
+    """Build the opening position and key the whole recorded game onto it."""
+    add_board(mats)
+    promotions = {
+        event["piece"]: event["to"]
+        for event in plan["events"]
+        if event["kind"] == "promote"
+    }
+    pieces = {
+        piece["id"]: add_piece(piece, promotions.get(piece["id"]), mats)
+        for piece in plan["pieces"]
+    }
+    for event in plan["events"]:
+        entry = pieces[event["piece"]]
+        if event["kind"] == "move":
+            _key_move(entry["root"], event)
+        elif event["kind"] == "capture":
+            _key_capture(entry["root"], event["frame"])
+        elif event["kind"] == "promote":
+            _key_promotion(entry["bodies"], event["frame"])
+
+
+def _key_move(root: bpy.types.Object, event: dict) -> None:
+    start = Vector(square_location(event["from"]))
+    end = Vector(square_location(event["to"]))
+    lift = max(1, int(event["lift_frame"]))
+    land = max(lift + 2, int(event["land_frame"]))
+    apex = (start + end) / 2 + Vector((0, 0, 0.30))
+    for frame, location in (
+        (lift, start),
+        ((lift + land) // 2, apex),
+        (land, end),
+    ):
+        root.location = location
+        root.keyframe_insert("location", frame=frame)
+
+
+def _key_capture(root: bpy.types.Object, frame: int) -> None:
+    for offset, scale in ((-5, 1.0), (3, 0.001)):
+        root.scale = (scale, scale, scale)
+        root.keyframe_insert("scale", frame=max(1, frame + offset))
+
+
+def _key_promotion(bodies: dict, frame: int) -> None:
+    promoted = bodies.get("promoted")
+    if promoted is None:
+        return
+    for offset, main_scale, promoted_scale in ((-3, 1.0, 0.001), (4, 0.001, 1.0)):
+        bodies["main"].scale = (main_scale,) * 3
+        bodies["main"].keyframe_insert("scale", frame=max(1, frame + offset))
+        promoted.scale = (promoted_scale,) * 3
+        promoted.keyframe_insert("scale", frame=max(1, frame + offset))
+
+
+def make_cyclic(obj: bpy.types.Object) -> None:
+    """Let a short idle animation repeat for however long the match runs."""
+    animation = obj.animation_data
+    if animation is None or animation.action is None:
+        return
+    for curve in _action_fcurves(animation.action):
+        if not any(modifier.type == "CYCLES" for modifier in curve.modifiers):
+            curve.modifiers.new("CYCLES")
+
+
+def _action_fcurves(action) -> list:
+    """Read curves from both legacy actions and Blender's slotted actions."""
+    legacy = getattr(action, "fcurves", None)
+    if legacy is not None:
+        return list(legacy)
+    curves = []
+    for layer in getattr(action, "layers", []):
+        for strip in getattr(layer, "strips", []):
+            for bag in getattr(strip, "channelbags", []):
+                curves.extend(bag.fcurves)
+    return curves
 
 
 def configure_scene(args: argparse.Namespace) -> None:
@@ -350,14 +509,25 @@ def configure_scene(args: argparse.Namespace) -> None:
     for block in bpy.data.materials:
         bpy.data.materials.remove(block)
 
+    plan = None
+    if args.plan is not None:
+        plan = json.loads(args.plan.read_text())
+    total_frames = int(plan["total_frames"]) if plan else 300
+
     scene = bpy.context.scene
     scene.render.engine = "BLENDER_EEVEE"
     scene.render.resolution_percentage = 100
-    scene.render.resolution_x = 640 if args.preview else 960
-    scene.render.resolution_y = 360 if args.preview else 540
-    scene.render.fps = 30
-    scene.frame_start = 1
-    scene.frame_end = 300
+    scene.render.resolution_x = args.width
+    scene.render.resolution_y = args.height
+    scene.render.fps = int(plan["fps"]) if plan else 30
+    scene.frame_start = args.frame_start or 1
+    scene.frame_end = args.frame_end or total_frames
+    for attribute, value in (
+        ("taa_render_samples", args.samples),
+        ("use_raytracing", True),
+    ):
+        if hasattr(scene.eevee, attribute):
+            setattr(scene.eevee, attribute, value)
     scene.render.image_settings.file_format = "PNG"
     scene.render.filepath = str(args.output.resolve())
     scene.render.image_settings.compression = 45
@@ -406,24 +576,38 @@ def configure_scene(args: argparse.Namespace) -> None:
     print("[chessfly] raster ready", flush=True)
     add_screen("chess-monitor", (1.55, 2.28, 3.25), (3.75, 2.12), mats["frame"], stimulus)
     add_screen("neural-monitor", (-2.65, 2.02, 2.95), (2.35, 1.52), mats["frame"], raster_path)
-    text_object("CHESSFLY", (-3.70, 1.90, 4.00), 0.24, mats["cyan"])
-    text_object("NEURAL REPLAY  /  500 ms", (-3.70, 1.89, 1.98), 0.095, mats["muted"])
-    text_object("100,595 SPIKES  /  2 DN READOUT", (-3.70, 1.88, 1.78), 0.085, mats["cyan"])
-    text_object("STOCKFISH 1320", (0.05, 2.12, 4.53), 0.12, mats["amber"])
+    # In full-match mode the composite owns the HUD, so the set carries no text;
+    # baking a second wordmark into the plate only collides with the overlay.
+    if plan is None:
+        text_object("CHESSFLY", (-3.70, 1.90, 4.00), 0.24, mats["cyan"])
+        text_object("NEURAL REPLAY  /  500 ms", (-3.70, 1.89, 1.98), 0.095, mats["muted"])
+        text_object(
+            "100,595 SPIKES  /  2 DN READOUT", (-3.70, 1.88, 1.78), 0.085, mats["cyan"]
+        )
+        text_object("STOCKFISH 1320", (0.05, 2.12, 4.53), 0.12, mats["amber"])
     print("[chessfly] monitors ready", flush=True)
 
-    add_chessboard(run_dir, mats)
+    if plan is not None:
+        add_chessboard(plan, mats)
+    else:
+        add_board(mats)
     print("[chessfly] chessboard ready", flush=True)
     fly = add_fly(mats)
     print("[chessfly] fly ready", flush=True)
     for frame, z in ((1, 0.0), (80, 0.018), (160, -0.008), (240, 0.015), (300, 0.0)):
         fly.location.z = z
         fly.keyframe_insert("location", frame=frame)
+    make_cyclic(fly)
+    for child in bpy.data.objects:
+        if child.name.startswith("wing-"):
+            make_cyclic(child)
 
     for location, energy, color, size in (
-        ((-3.5, -2.8, 4.8), 850, (0.08, 0.62, 1.0), 5.0),
-        ((3.8, -0.5, 4.1), 1050, (1.0, 0.10, 0.04), 4.0),
-        ((0.0, 2.0, 5.8), 1250, (0.22, 0.36, 1.0), 5.0),
+        ((-3.5, -2.8, 4.8), 900, (0.10, 0.64, 1.0), 5.5),
+        ((3.8, -0.5, 4.1), 700, (1.0, 0.24, 0.10), 4.5),
+        ((0.0, 2.0, 5.8), 1150, (0.26, 0.40, 1.0), 5.5),
+        # A soft key over the board so the pieces read as solid, not silhouettes.
+        ((0.4, -3.2, 3.5), 620, (0.78, 0.86, 1.0), 3.2),
     ):
         bpy.ops.object.light_add(type="AREA", location=location)
         light = bpy.context.object
@@ -437,7 +621,7 @@ def configure_scene(args: argparse.Namespace) -> None:
     bpy.ops.object.camera_add(location=(6.9, -9.4, 5.0))
     camera = bpy.context.object
     scene.camera = camera
-    camera.data.lens = 48
+    camera.data.lens = 45
     camera.data.sensor_width = 36
     focus = bpy.data.objects.new("camera-focus", None)
     focus.location = (-0.15, -0.05, 1.85)
@@ -445,24 +629,33 @@ def configure_scene(args: argparse.Namespace) -> None:
     camera.data.dof.use_dof = True
     camera.data.dof.focus_object = focus
     camera.data.dof.aperture_fstop = 2.8
-    keyframes = (
-        (1, (6.9, -9.4, 5.0), (-0.15, -0.02, 1.85)),
-        (105, (5.8, -8.3, 4.45), (-0.35, -0.02, 1.82)),
-        (205, (4.25, -7.25, 3.85), (-0.1, -0.12, 1.72)),
-        (300, (3.25, -6.6, 3.55), (0.35, -0.08, 1.68)),
-    )
-    for frame, location, target in keyframes:
-        camera.location = location
-        look_at(camera, target)
+    # One slow orbit across the whole match, yawed so the subject sits in the
+    # left two thirds and the overlay panel never covers it.
+    centre = Vector((0.10, -0.35, 1.72))
+    steps = max(2, total_frames // 60)
+    for step in range(steps + 1):
+        frame = 1 + round(step * (total_frames - 1) / steps)
+        phase = step / steps
+        angle = math.radians(-114) + phase * math.radians(40)
+        radius = 11.9 - 0.9 * math.sin(phase * math.pi)
+        height = 6.7 - 0.7 * math.sin(phase * math.pi)
+        camera.location = (
+            centre.x + radius * math.cos(angle),
+            centre.y + radius * math.sin(angle),
+            height,
+        )
+        target = centre + Vector((0.0, 0.0, 0.10 * math.sin(phase * math.tau)))
+        look_at(camera, tuple(target))
+        camera.rotation_euler.rotate_axis("Z", args.yaw)
         camera.keyframe_insert("location", frame=frame)
         camera.keyframe_insert("rotation_euler", frame=frame)
-        focus.location = target
+        focus.location = tuple(target)
         focus.keyframe_insert("location", frame=frame)
     print("[chessfly] camera ready", flush=True)
 
     scene.render.image_settings.color_mode = "RGB"
     if args.preview:
-        scene.frame_set(220)
+        scene.frame_set(min(args.preview_frame, scene.frame_end))
         scene.render.filepath = str(args.output.resolve())
     if args.save_blend:
         args.save_blend.parent.mkdir(parents=True, exist_ok=True)

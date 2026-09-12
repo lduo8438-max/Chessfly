@@ -22,6 +22,7 @@ from .dataset import download_file, inventory, select_files, write_manifest
 from .game import play_game
 from .graph import summarize_connection_file
 from .male_cns_brain import MaleCNSSubgraphBrain
+from .match_plan import write_plan
 from .match_video import render_match_video
 from .retina import build_retina_projection, load_retina_body_ids
 from .social_video import render_social_video
@@ -271,6 +272,14 @@ def run_readout_seed_sweep(args: argparse.Namespace) -> int:
     return 0
 
 
+def run_match_plan(args: argparse.Namespace) -> int:
+    output = write_plan(
+        args.run_dir, args.output, duration_seconds=args.duration, fps=args.fps
+    )
+    print(f"plan={output.resolve()}")
+    return 0
+
+
 def run_render_match_video(args: argparse.Namespace) -> int:
     output = render_match_video(
         args.run_dir,
@@ -467,6 +476,16 @@ def build_parser() -> argparse.ArgumentParser:
     match_video.add_argument("--duration", type=float, default=60.0)
     match_video.add_argument("--fps", type=int, default=30)
     match_video.set_defaults(handler=run_render_match_video)
+
+    plan = commands.add_parser(
+        "match-plan",
+        help="emit the frame-accurate 3D animation plan for a recorded match",
+    )
+    plan.add_argument("--run-dir", type=Path, required=True)
+    plan.add_argument("--output", type=Path, required=True)
+    plan.add_argument("--duration", type=float, default=60.0)
+    plan.add_argument("--fps", type=int, default=30)
+    plan.set_defaults(handler=run_match_plan)
     return parser
 
 
