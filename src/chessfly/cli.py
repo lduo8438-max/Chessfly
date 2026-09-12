@@ -23,6 +23,7 @@ from .game import play_game
 from .graph import summarize_connection_file
 from .male_cns_brain import MaleCNSSubgraphBrain
 from .retina import build_retina_projection, load_retina_body_ids
+from .social_video import render_social_video
 from .stockfish import StockfishConfig, StockfishOpponent
 from .toy_brain import ToyChessBrain
 from .vision import save_board_stimulus
@@ -258,6 +259,19 @@ def run_readout_seed_sweep(args: argparse.Namespace) -> int:
     return 0
 
 
+def run_render_video(args: argparse.Namespace) -> int:
+    output = render_social_video(
+        args.run_dir,
+        args.output,
+        data_dir=args.data_dir,
+        duration_seconds=args.duration,
+        fps=args.fps,
+    )
+    print(f"output={output.resolve()}")
+    print(f"metadata={output.with_suffix('.json').resolve()}")
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="chessfly",
@@ -390,6 +404,16 @@ def build_parser() -> argparse.ArgumentParser:
         "--run-dir", type=Path, default=Path("runs/readout-seed-sweep-v1")
     )
     seed_sweep.set_defaults(handler=run_readout_seed_sweep)
+
+    video = commands.add_parser(
+        "render-video", help="render a telemetry-driven 9:16 social MP4"
+    )
+    video.add_argument("--run-dir", type=Path, required=True)
+    video.add_argument("--data-dir", type=Path, default=Path("data"))
+    video.add_argument("--output", type=Path, default=Path("runs/chessfly-social.mp4"))
+    video.add_argument("--duration", type=float, default=30.0)
+    video.add_argument("--fps", type=int, default=30)
+    video.set_defaults(handler=run_render_video)
     return parser
 
 

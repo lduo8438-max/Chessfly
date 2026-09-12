@@ -28,17 +28,18 @@ chess control-room identity.
 - No fake spikes, fake evaluations, copied footage, or claims that the fly
   understands chess.
 
-## 59-second social cut
+## Implemented 30-second social cut
 
-1. **0–4 s — Hook:** `I connected a fly brain to Stockfish.`
-2. **4–11 s — Mechanism:** pixels enter photoreceptors; activity crosses the
+1. **0–4 s — Hook:** `A fly connectome simulation plays Stockfish.`
+2. **4–9 s — Mechanism:** pixels enter photoreceptors; activity crosses the
    connectome; 32 descending-neuron groups score legal moves.
-3. **11–43 s — Match:** selected moments from one real logged game. The board,
+3. **9–25 s — Match:** selected moments from one real logged game. The board,
    spike raster, move score, and engine evaluation update together.
-4. **43–52 s — Learning:** positive/negative evaluation change lights the
-   engineered PAM11/PPL101 feedback path.
-5. **52–59 s — Result:** outcome and benchmark controls, followed by
+4. **25–30 s — Result:** outcome and benchmark controls, followed by
    `Wiring-constrained experiment. Not a biological chess brain.`
 
-Master output: 1080×1920, 30 fps, H.264/AAC, English text, under 59 seconds.
-Spike events drive original synthesized sound; no third-party music is needed.
+The frozen video does not visualize a learning path: reward is displayed as
+recorded telemetry and the result card explicitly says `PLASTICITY OFF`.
+
+Master output: 1080×1920, 30 fps, H.264/AAC, English text, 30 seconds. Spike
+events drive original synthesized sound; no third-party music is used.

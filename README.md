@@ -51,6 +51,9 @@ python3 -m venv .venv
 .venv/bin/chessfly match --network male-cns --max-plies 20
 .venv/bin/chessfly benchmark --positions 10
 .venv/bin/chessfly seed-sweep --count 100
+.venv/bin/chessfly render-video \
+  --run-dir runs/video-source-v1 \
+  --output runs/chessfly-social-master.mp4
 ```
 
 Specify a non-standard Stockfish location with `--stockfish-path`. Each run gets
