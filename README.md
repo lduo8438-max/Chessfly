@@ -21,7 +21,8 @@ The frozen MaleCNS reference baseline is live:
 - legal-move masking with explicit silence and tie-break reporting;
 - a transparent toy SNN for end-to-end testing before MaleCNS is downloaded;
 - adjustable-strength Stockfish UCI integration;
-- reproducible `run.json`, `moves.jsonl`, and `game.pgn` artifacts;
+- reproducible `run.json`, `moves.jsonl`, and `game.pgn` artifacts, flushed
+  after every ply so a long game survives an interruption;
 - verified MaleCNS downloads with local SHA-256 provenance;
 - streamed reconstruction of the retained graph: 166,700 neurons, 25,582,938
   directed connections, and 124,177,617 synaptic contacts;
@@ -58,6 +59,37 @@ python3 -m venv .venv
 
 Specify a non-standard Stockfish location with `--stockfish-path`. Each run gets
 its own directory under `runs/` and never overwrites an earlier result.
+
+## Long games, checkpoints and resuming
+
+`match` writes durable state after every ply, so an interrupted long game is not
+lost:
+
+| File | Written | Holds |
+|---|---|---|
+| `moves.jsonl` | appended and flushed per ply | one record per ply |
+| `game.pgn`, `run.json` | rewritten per ply | the game so far |
+| `progress.json` | rewritten per ply, last | FEN, move stack, ply count, termination |
+| `checkpoint.npz` | rewritten per ply | membrane voltages, synaptic currents, refractory counters, delay queue, retina adaptation |
+| `neural/ply-NNN/decision.json` | per Chessfly ply | channel rates, every legal-move score, tie and silence flags |
+
+`progress.json` is written last, so it is the authority; on resume any move
+records written past it are truncated and that ply is recomputed.
+
+```bash
+# continue an interrupted run in place
+.venv/bin/chessfly match --network male-cns --run-dir runs/full-game-v1 --resume
+
+# continue a run that stopped at its ply cap
+.venv/bin/chessfly match --network male-cns --run-dir runs/full-game-v1 \
+  --max-plies 600 --resume
+```
+
+Resuming restores the simulated network state rather than only the position, so
+the continued game is identical to an uninterrupted one. A run that reached a
+rule termination (checkmate, stalemate, repetition, fifty-move) cannot be
+resumed. `--engine-retries` (default 3) controls how many times a failed
+Stockfish call restarts the engine before the run stops.
 
 ## Render the cinematic social video
 

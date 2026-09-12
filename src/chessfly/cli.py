@@ -34,6 +34,16 @@ def _default_run_dir() -> Path:
     return Path("runs") / f"smoke-{stamp}"
 
 
+def _report(result) -> None:
+    print(f"result={result.result} termination={result.termination}")
+    print(f"plies={result.plies}")
+    if result.resumed_from_ply:
+        print(f"resumed_from_ply={result.resumed_from_ply}")
+    if result.engine_restarts:
+        print(f"stockfish_restarts={result.engine_restarts}")
+    print(f"run_dir={result.run_dir.resolve()}")
+
+
 def run_smoke(args: argparse.Namespace) -> int:
     config = StockfishConfig(
         path=args.stockfish_path,
@@ -48,11 +58,10 @@ def run_smoke(args: argparse.Namespace) -> int:
             args.run_dir or _default_run_dir(),
             chessfly_color=color,
             max_plies=args.max_plies,
+            progress=print,
         )
     print(f"mode=toy-not-male-cns")
-    print(f"result={result.result} termination={result.termination}")
-    print(f"plies={result.plies}")
-    print(f"run_dir={result.run_dir.resolve()}")
+    _report(result)
     return 0
 
 
@@ -199,18 +208,20 @@ def run_match(args: argparse.Namespace) -> int:
         )
     else:
         brain = ToyChessBrain()
+    run_dir = args.run_dir or _default_run_dir()
     with StockfishOpponent(config) as stockfish:
         result = play_game(
             brain,
             stockfish,
-            args.run_dir or _default_run_dir(),
+            run_dir,
             chessfly_color=color,
             max_plies=args.max_plies,
+            resume=args.resume,
+            progress=print,
+            engine_retries=args.engine_retries,
         )
     print(f"mode={brain.mode}")
-    print(f"result={result.result} termination={result.termination}")
-    print(f"plies={result.plies}")
-    print(f"run_dir={result.run_dir.resolve()}")
+    _report(result)
     return 0
 
 
@@ -370,6 +381,17 @@ def build_parser() -> argparse.ArgumentParser:
     match.add_argument("--episode-seed", type=int, default=20260912)
     match.add_argument("--max-plies", type=int, default=20)
     match.add_argument("--run-dir", type=Path)
+    match.add_argument(
+        "--resume",
+        action="store_true",
+        help="continue an interrupted run from its checkpoint instead of starting over",
+    )
+    match.add_argument(
+        "--engine-retries",
+        type=int,
+        default=3,
+        help="how many times to restart Stockfish after a failed call",
+    )
     match.set_defaults(handler=run_match)
 
     benchmark = commands.add_parser(

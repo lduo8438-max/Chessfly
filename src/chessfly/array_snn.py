@@ -194,3 +194,48 @@ class ArrayLIFNetwork:
         self._queue_index = (self._queue_index + 1) % len(self._queue)
         self.step_index += 1
         return spikes
+
+    def state_dict(self) -> dict:
+        """Return a copy of every mutable runtime field for checkpointing."""
+        return {
+            "voltage_mv": self.voltage_mv.copy(),
+            "synaptic_current": self.synaptic_current.copy(),
+            "refractory_left": self._refractory_left.copy(),
+            "queue": self._queue.copy(),
+            "queue_index": np.asarray(self._queue_index, dtype=np.int64),
+            "step_index": np.asarray(self.step_index, dtype=np.int64),
+        }
+
+    def load_state_dict(self, state: Mapping[str, np.ndarray]) -> None:
+        """Restore runtime state saved by :meth:`state_dict` on the same wiring."""
+        missing = {
+            "voltage_mv",
+            "synaptic_current",
+            "refractory_left",
+            "queue",
+            "queue_index",
+            "step_index",
+        } - set(state)
+        if missing:
+            raise ValueError(f"checkpoint is missing SNN fields: {sorted(missing)}")
+        voltage = np.asarray(state["voltage_mv"], dtype=np.float32)
+        synaptic = np.asarray(state["synaptic_current"], dtype=np.float32)
+        refractory = np.asarray(state["refractory_left"], dtype=np.int16)
+        queue = np.asarray(state["queue"], dtype=np.float32)
+        if voltage.shape != self.voltage_mv.shape:
+            raise ValueError("checkpoint neuron count does not match this network")
+        if synaptic.shape != self.synaptic_current.shape:
+            raise ValueError("checkpoint neuron count does not match this network")
+        if refractory.shape != self._refractory_left.shape:
+            raise ValueError("checkpoint neuron count does not match this network")
+        if queue.shape != self._queue.shape:
+            raise ValueError("checkpoint delay queue does not match this network")
+        queue_index = int(np.asarray(state["queue_index"]).reshape(()))
+        if not 0 <= queue_index < len(self._queue):
+            raise ValueError("checkpoint delay-queue index is out of range")
+        self.voltage_mv[:] = voltage
+        self.synaptic_current[:] = synaptic
+        self._refractory_left[:] = refractory
+        self._queue[:] = queue
+        self._queue_index = queue_index
+        self.step_index = int(np.asarray(state["step_index"]).reshape(()))

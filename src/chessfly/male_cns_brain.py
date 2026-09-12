@@ -129,6 +129,27 @@ class MaleCNSSubgraphBrain:
         self.last_stimulus = None
         self.last_retina_values = None
 
+    def state_dict(self) -> dict:
+        """Return the full continuous runtime state for mid-game checkpoints."""
+        state = {f"network.{key}": value for key, value in self.network.state_dict().items()}
+        state["retina_light"] = self._retina_light.copy()
+        return state
+
+    def load_state_dict(self, state: dict) -> None:
+        """Restore state saved by :meth:`state_dict` so a resumed game continues exactly."""
+        network_state = {
+            key[len("network.") :]: value
+            for key, value in state.items()
+            if key.startswith("network.")
+        }
+        self.network.load_state_dict(network_state)
+        if "retina_light" not in state:
+            raise ValueError("checkpoint is missing the retina adaptation state")
+        light = np.asarray(state["retina_light"], dtype=np.float32)
+        if light.shape != self._retina_light.shape:
+            raise ValueError("checkpoint retina input count does not match this brain")
+        self._retina_light[:] = light
+
     def describe(self) -> dict[str, object]:
         return {
             "mode": self.mode,

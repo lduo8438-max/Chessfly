@@ -33,22 +33,37 @@ class StockfishOpponent:
                 "Stockfish was not found; pass --stockfish-path or install it"
             )
         self.config = config
-        self.engine = chess.engine.SimpleEngine.popen_uci(path)
-        self.engine.configure(
+        self.path = path
+        self.restarts = 0
+        self.engine = self._spawn()
+
+    def _spawn(self) -> chess.engine.SimpleEngine:
+        engine = chess.engine.SimpleEngine.popen_uci(self.path)
+        engine.configure(
             {
-                "Threads": config.threads,
-                "Hash": config.hash_mb,
+                "Threads": self.config.threads,
+                "Hash": self.config.hash_mb,
                 "UCI_LimitStrength": True,
-                "UCI_Elo": config.elo,
+                "UCI_Elo": self.config.elo,
             }
         )
+        return engine
+
+    def restart(self) -> None:
+        """Replace a wedged or dead engine process with a freshly configured one."""
+        try:
+            self.engine.quit()
+        except BaseException:
+            pass
+        self.engine = self._spawn()
+        self.restarts += 1
 
     def play(self, board: chess.Board) -> chess.Move:
         result = self.engine.play(
             board, chess.engine.Limit(time=self.config.movetime_ms / 1000.0)
         )
         if result.move is None:
-            raise RuntimeError("Stockfish returned no move for a live position")
+            raise chess.engine.EngineError("Stockfish returned no move for a live position")
         return result.move
 
     def evaluate_cp(
@@ -65,7 +80,7 @@ class StockfishOpponent:
         )
         score = info["score"].pov(pov).score(mate_score=100000)
         if score is None:
-            raise RuntimeError("Stockfish returned an unavailable evaluation")
+            raise chess.engine.EngineError("Stockfish returned an unavailable evaluation")
         return int(score)
 
     def close(self) -> None:

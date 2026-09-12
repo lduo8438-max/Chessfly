@@ -56,6 +56,50 @@ class ArrayLIFNetworkTests(unittest.TestCase):
         self.assertEqual(network.step().tolist(), [])
         self.assertLess(network.voltage_mv[1], parameters.resting_mv)
 
+    def _chain_network(self):
+        parameters = ArrayLIFParameters(dt_ms=1.0, delay_ms=3.0, contact_scale=1.0)
+        return ArrayLIFNetwork(
+            3,
+            np.array([0, 1]),
+            np.array([1, 2]),
+            np.array([40, 40]),
+            np.array([1.0, 1.0, 1.0]),
+            parameters,
+        )
+
+    def test_checkpointed_state_reproduces_the_continuing_trajectory(self):
+        drive = np.array([14.0, 0.0, 0.0], dtype=np.float32)
+        original = self._chain_network()
+        for _ in range(20):
+            original.step(drive)
+        state = original.state_dict()
+        expected = [original.step(drive).tolist() for _ in range(30)]
+
+        restored = self._chain_network()
+        restored.load_state_dict(state)
+        self.assertEqual(restored.step_index, 20)
+        replayed = [restored.step(drive).tolist() for _ in range(30)]
+        self.assertEqual(replayed, expected)
+
+    def test_a_reset_network_does_not_reproduce_the_trajectory(self):
+        drive = np.array([14.0, 0.0, 0.0], dtype=np.float32)
+        original = self._chain_network()
+        for _ in range(20):
+            original.step(drive)
+        expected = [original.step(drive).tolist() for _ in range(30)]
+        fresh = self._chain_network()
+        self.assertNotEqual([fresh.step(drive).tolist() for _ in range(30)], expected)
+
+    def test_mismatched_checkpoint_is_rejected(self):
+        state = self._chain_network().state_dict()
+        state["voltage_mv"] = np.zeros(4, dtype=np.float32)
+        with self.assertRaises(ValueError):
+            self._chain_network().load_state_dict(state)
+        incomplete = self._chain_network().state_dict()
+        del incomplete["queue"]
+        with self.assertRaises(ValueError):
+            self._chain_network().load_state_dict(incomplete)
+
     def test_consensus_transmitter_policy_is_explicit(self):
         table = pa.table(
             {
