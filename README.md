@@ -115,6 +115,28 @@ step adds the recorded spike count/raster and locally synthesized sound.
 Deliverables are H.264/AAC at 30 fps: a 1920×1080 X master and a 1080×1920
 Instagram version. The scene is illustrative; the HUD is measured telemetry.
 
+## Render the 16:9 full-match cut
+
+The match cut keeps the cinematic plates on the left two thirds and adds a
+dedicated instrument screen on the right third: a readable board above, and a
+fly-brain activity diagram below, both driven by one recorded run.
+
+```bash
+.venv/bin/chessfly render-match-video \
+  --run-dir runs/full-game-v1 \
+  --frames runs/cinematic/frames \
+  --duration 60 \
+  --output runs/chessfly-match-v1.mp4
+```
+
+Closing plies are held longer than the middlegame so a checkmate does not flash
+past, Stockfish replies hold the last neural frame and label it `HELD`, and node
+brightness is normalized per group so the core does not read as a dead field —
+the printed counters stay raw. Board pieces are Staunton glyphs from a system
+Unicode font, drawn for display only: `chessfly.vision` still renders the
+letter-based 320×180 stimulus the network actually sees, and no video change is
+allowed to alter it.
+
 ## How a move is selected
 
 ```text

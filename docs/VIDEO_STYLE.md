@@ -45,6 +45,32 @@ Outputs are a 1920×1080 X master and a 1080×1920 Instagram delivery file, both
 30 fps, H.264/AAC, and 10 seconds. Spike events drive original synthesized
 sound; no third-party music or Stonkfly media is used.
 
+## 16:9 full-match cut
+
+The match cut reuses the cinematic plates and adds a single instrument screen so
+a whole game stays readable:
+
+- **Left two thirds** — the rendered laboratory plate, ping-ponged so a long
+  match never cuts abruptly. The 3D board stays at the pose it was rendered in;
+  it is set dressing, and the live position is the panel's job.
+- **Right third** — an opaque screen. A 520 px board sits at the top, the
+  fly-brain activity diagram below it, and the raw counters at the foot.
+- **Brain diagram** — three real groups (retina inputs, SNN core, descending
+  readout) drawn from the recorded `spikes-10ms.npz`, joined only by edges that
+  exist in the compiled subgraph. Brightness is normalized within each group,
+  because one global peak renders the core as a dead field; the printed spike
+  and readout counts are raw.
+- **Honesty rules carried over** — a held neural frame is labelled `HELD`, a
+  tie-broken move says so, and the ending is named from the manifest rather than
+  described as a demo.
+
+### Board art
+
+Pieces are Staunton glyphs taken from a system Unicode font. No third-party
+piece artwork is copied. This is display art only: `chessfly.vision` keeps
+rendering the letter-based 320×180 stimulus that the retina actually samples,
+and changing it to suit a render would invalidate every recorded run.
+
 The referenced Stonkfly repository contains image-generation direction but no
 video source, scene, model, or rendering pipeline. Chessfly therefore follows
 the public post's broad cinematic grammar without copying its assets.

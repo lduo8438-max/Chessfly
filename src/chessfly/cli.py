@@ -22,6 +22,7 @@ from .dataset import download_file, inventory, select_files, write_manifest
 from .game import play_game
 from .graph import summarize_connection_file
 from .male_cns_brain import MaleCNSSubgraphBrain
+from .match_video import render_match_video
 from .retina import build_retina_projection, load_retina_body_ids
 from .social_video import render_social_video
 from .stockfish import StockfishConfig, StockfishOpponent
@@ -270,6 +271,20 @@ def run_readout_seed_sweep(args: argparse.Namespace) -> int:
     return 0
 
 
+def run_render_match_video(args: argparse.Namespace) -> int:
+    output = render_match_video(
+        args.run_dir,
+        args.frames,
+        args.output,
+        data_dir=args.data_dir,
+        duration_seconds=args.duration,
+        fps=args.fps,
+    )
+    print(f"output={output.resolve()}")
+    print(f"metadata={output.with_suffix('.json').resolve()}")
+    return 0
+
+
 def run_render_video(args: argparse.Namespace) -> int:
     output = render_social_video(
         args.run_dir,
@@ -436,6 +451,22 @@ def build_parser() -> argparse.ArgumentParser:
     video.add_argument("--duration", type=float, default=30.0)
     video.add_argument("--fps", type=int, default=30)
     video.set_defaults(handler=run_render_video)
+
+    match_video = commands.add_parser(
+        "render-match-video",
+        help="render a 16:9 full-match cut over the original cinematic plates",
+    )
+    match_video.add_argument("--run-dir", type=Path, required=True)
+    match_video.add_argument(
+        "--frames", type=Path, default=Path("runs/cinematic/frames")
+    )
+    match_video.add_argument("--data-dir", type=Path, default=Path("data"))
+    match_video.add_argument(
+        "--output", type=Path, default=Path("runs/chessfly-match.mp4")
+    )
+    match_video.add_argument("--duration", type=float, default=60.0)
+    match_video.add_argument("--fps", type=int, default=30)
+    match_video.set_defaults(handler=run_render_match_video)
     return parser
 
 
