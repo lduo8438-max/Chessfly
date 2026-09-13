@@ -78,3 +78,27 @@ and changing it to suit a render would invalidate every recorded run.
 The referenced Stonkfly repository contains image-generation direction but no
 video source, scene, model, or rendering pipeline. Chessfly therefore follows
 the public post's broad cinematic grammar without copying its assets.
+
+## FlyJack-style match
+
+A second look follows [FlyJack](https://fanpu.io/games/flyjack/) while keeping
+Chessfly's split screen.
+
+- **Staging** — one round green-felt table with a wood rim in darkness, lit by a
+  single warm spotlight with soft shadows; gold serif lettering on the felt.
+  The lamp dims while the brain is on screen.
+- **Fly** — the anatomical NeuroMechFly body (FlyGym 1.1.0, Apache-2.0) in its
+  tripod standing pose, seated behind White's back rank facing the board.
+- **Brain** — every MaleCNS brain cell with a recorded soma position drawn as a
+  dim point, floating over the fly; the simulated cells flash from recorded
+  spikes with a 20 ms decay. Colours: central brain `#3987e5`, mushroom body
+  `#d95926`, descending `#199e70`, optic and sensory `#c3c2b7`.
+- **Shots** — overview → board → think (brain) → result, cut from the plan.
+  Only highlighted decisions get a think shot, so a long game still fits 60 s.
+- **HUD** — FlyJack's glass palette: page `#050607`, glass `#121211`, ink
+  `#ffffff` / `#c3c2b7`, warm accent `#f1c27d`. The bottom-left HUD shows the
+  real 320×180 stimulus the network saw, since the 3D monitors are gone.
+
+Honesty rules carry over: the brain label states the magnification, a held or
+tie-broken decision says so, and the disclaimer states how many simulated cells
+were placed and how much the 500 ms decision was slowed.

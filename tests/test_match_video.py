@@ -25,6 +25,13 @@ class PacingTests(unittest.TestCase):
     def test_a_single_ply_run_is_allowed(self):
         self.assertEqual(_ply_index(_pacing(1), 0.5), 0)
 
+    def test_highlights_hold_and_must_lie_inside_the_game(self):
+        weights = _pacing(20, highlights=[7])
+        spans = np.diff(np.concatenate(([0.0], weights)))
+        self.assertGreater(spans[7], spans[8] * 5)
+        with self.assertRaises(ValueError):
+            _pacing(20, highlights=[20])
+
     def test_rejects_an_empty_run(self):
         with self.assertRaises(ValueError):
             _pacing(0)

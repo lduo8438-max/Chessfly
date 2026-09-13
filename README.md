@@ -177,6 +177,56 @@ Unicode font, drawn for display only: `chessfly.vision` still renders the
 letter-based 320×180 stimulus the network actually sees, and no video change is
 allowed to alter it.
 
+## Render the FlyJack-style match
+
+This look follows [FlyJack](https://fanpu.io/games/flyjack/): a round felt
+table in darkness under one warm lamp, the anatomical NeuroMechFly body at the
+table, and the fly's brain floating above it as a point cloud that lights up
+with the recorded spikes. The live-board panel keeps the right third.
+
+```bash
+.venv/bin/chessfly prepare-fly-model      # NeuroMechFly, pinned and hash-checked
+.venv/bin/chessfly build-brain-cloud      # MaleCNS neurons at their soma positions
+
+.venv/bin/chessfly match-plan \
+  --run-dir runs/full-game-skill0-v1 \
+  --output runs/full-game-skill0-v1/plan.json \
+  --duration 60 --highlight-plies 1,11,43,65,71
+
+/Applications/Blender.app/Contents/MacOS/Blender --background \
+  --python scripts/blender_flyjack.py -- \
+  --run-dir runs/full-game-skill0-v1 \
+  --plan runs/full-game-skill0-v1/plan.json \
+  --output runs/flyjack-skill0/frames/frame-
+
+.venv/bin/chessfly render-flyjack-video \
+  --run-dir runs/full-game-skill0-v1 \
+  --plan runs/full-game-skill0-v1/plan.json \
+  --frames runs/flyjack-skill0/frames \
+  --camera runs/flyjack-skill0/frames/camera.json \
+  --output runs/chessfly-flyjack-skill0.mp4
+```
+
+`--highlight-plies` picks the Chessfly decisions that get a "think" shot: the
+lamp dims, the camera turns to the brain, and that decision's 500 ms of
+recorded activity plays out, slowed to fit the shot. Blender renders only the
+scene and writes every frame's camera matrices; the compositor projects the
+brain through those matrices, so spikes land on the right cells frame-accurately
+without re-rendering the plates.
+
+What the brain shows, precisely:
+
+- Every MaleCNS brain body with a `somaLocation` (or `tosomaLocation`) is a dim
+  point: 126,829 cells, cut at the neck gap (soma z < 400 µm).
+- The simulated cells flash from their recorded `spikes-10ms.npz`, decaying with
+  τ = 20 ms of simulated time. 6,177 of the 8,598 simulated cells are placed;
+  the rest are mostly photoreceptors, whose somata lie outside the imaged
+  volume, and three ascending neurons in the VNC. None are placed by guesswork.
+- Colours follow FlyJack's classes: central brain blue, mushroom body orange,
+  descending neurons green, optic lobe and sensory grey.
+- The brain is magnified relative to the fly (about 7×), and the on-screen label
+  says so.
+
 ## How a move is selected
 
 ```text

@@ -80,13 +80,19 @@ def render_display_board(
     perspective: chess.Color = chess.WHITE,
     last_move: Optional[chess.Move] = None,
     coordinates: bool = True,
+    light_square: tuple[int, int, int] = LIGHT_SQUARE,
+    dark_square: tuple[int, int, int] = DARK_SQUARE,
+    border_colour: tuple[int, int, int] = BORDER,
+    highlight_colour: tuple[int, int, int] = LAST_MOVE,
 ) -> Image.Image:
     """Draw a readable board; falls back to letters where no chess font exists."""
     if size < 64:
         raise ValueError("display board must be at least 64 pixels wide")
+    LIGHT, DARK = light_square, dark_square
+    EDGE, MARK = border_colour, highlight_colour
     cell = size // 8
     span = cell * 8
-    image = Image.new("RGB", (span, span), DARK_SQUARE)
+    image = Image.new("RGB", (span, span), DARK)
     draw = ImageDraw.Draw(image, "RGBA")
     glyphs = piece_font(int(cell * 0.82))
     fallback = None if glyphs is not None else _label_font(int(cell * 0.5))
@@ -104,7 +110,7 @@ def render_display_board(
             light = (display_file + display_rank) % 2 == 0
             draw.rectangle(
                 (left, top, left + cell - 1, top + cell - 1),
-                fill=LIGHT_SQUARE if light else DARK_SQUARE,
+                fill=LIGHT if light else DARK,
             )
             if last_move is not None and square in (
                 last_move.from_square,
@@ -112,11 +118,11 @@ def render_display_board(
             ):
                 draw.rectangle(
                     (left, top, left + cell - 1, top + cell - 1),
-                    fill=LAST_MOVE + (62,),
+                    fill=MARK + (62,),
                 )
                 draw.rectangle(
                     (left + 1, top + 1, left + cell - 2, top + cell - 2),
-                    outline=LAST_MOVE,
+                    outline=MARK,
                     width=max(1, cell // 22),
                 )
             if coordinates:
@@ -125,7 +131,7 @@ def render_display_board(
                         (left + cell - max(3, cell // 14), top + cell - max(3, cell // 14)),
                         chess.FILE_NAMES[file_index],
                         font=coordinate_font,
-                        fill=DARK_SQUARE if light else LIGHT_SQUARE,
+                        fill=DARK if light else LIGHT,
                         anchor="rs",
                     )
                 if display_file == 0:
@@ -133,14 +139,14 @@ def render_display_board(
                         (left + max(3, cell // 14), top + max(2, cell // 16)),
                         chess.RANK_NAMES[rank_index],
                         font=coordinate_font,
-                        fill=DARK_SQUARE if light else LIGHT_SQUARE,
+                        fill=DARK if light else LIGHT,
                         anchor="lt",
                     )
             piece = board.piece_at(square)
             if piece is not None:
                 _draw_piece(draw, left, top, cell, piece, glyphs, fallback)
 
-    draw.rectangle((0, 0, span - 1, span - 1), outline=BORDER, width=max(1, cell // 26))
+    draw.rectangle((0, 0, span - 1, span - 1), outline=EDGE, width=max(1, cell // 26))
     return image
 
 

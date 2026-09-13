@@ -8,6 +8,7 @@ build/
 *.egg-info/
 data/raw/
 data/compiled/
+data/assets/
 runs/
 .env
 .DS_Store

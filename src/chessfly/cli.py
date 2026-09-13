@@ -17,8 +17,11 @@ from .annotations import (
     summarize_annotations,
 )
 from .benchmark import POSITION_LINES, run_fixed_benchmark, run_seed_sweep
+from .brain_cloud import build_brain_cloud
 from .compiled_graph import build_path_subgraph, compile_retained_csr
 from .dataset import download_file, inventory, select_files, write_manifest
+from .fly_model import prepare_fly_model
+from .flyjack_video import render_flyjack_video
 from .game import play_game
 from .graph import summarize_connection_file
 from .male_cns_brain import MaleCNSSubgraphBrain
@@ -91,6 +94,17 @@ def run_prepare(args: argparse.Namespace) -> int:
             f"bytes={record['bytes']} sha256={record['sha256']}"
         )
     write_manifest(records, args.data_dir / "manifest.json")
+    return 0
+
+
+def run_prepare_fly_model(args: argparse.Namespace) -> int:
+    summary = prepare_fly_model(args.data_dir)
+    print(json.dumps(summary, indent=2, sort_keys=True))
+    return 0
+
+
+def run_build_brain_cloud(args: argparse.Namespace) -> int:
+    print(json.dumps(build_brain_cloud(args.data_dir), indent=2, sort_keys=True))
     return 0
 
 
@@ -274,10 +288,29 @@ def run_readout_seed_sweep(args: argparse.Namespace) -> int:
 
 
 def run_match_plan(args: argparse.Namespace) -> int:
+    highlights = [int(value) for value in args.highlight_plies.split(",") if value.strip()]
     output = write_plan(
-        args.run_dir, args.output, duration_seconds=args.duration, fps=args.fps
+        args.run_dir,
+        args.output,
+        duration_seconds=args.duration,
+        fps=args.fps,
+        highlight_plies=highlights,
     )
     print(f"plan={output.resolve()}")
+    return 0
+
+
+def run_render_flyjack_video(args: argparse.Namespace) -> int:
+    output = render_flyjack_video(
+        args.run_dir,
+        args.plan,
+        args.frames,
+        args.camera,
+        args.output,
+        data_dir=args.data_dir,
+    )
+    print(f"output={output.resolve()}")
+    print(f"metadata={output.with_suffix('.json').resolve()}")
     return 0
 
 
@@ -393,6 +426,20 @@ def build_parser() -> argparse.ArgumentParser:
     decision.add_argument("--episode-seed", type=int, default=20260912)
     decision.set_defaults(handler=run_male_cns_decision)
 
+    fly_model = commands.add_parser(
+        "prepare-fly-model",
+        help="download and verify the NeuroMechFly body model used by the renderer",
+    )
+    fly_model.add_argument("--data-dir", type=Path, default=Path("data"))
+    fly_model.set_defaults(handler=run_prepare_fly_model)
+
+    cloud = commands.add_parser(
+        "build-brain-cloud",
+        help="place MaleCNS neurons at their recorded soma positions for rendering",
+    )
+    cloud.add_argument("--data-dir", type=Path, default=Path("data"))
+    cloud.set_defaults(handler=run_build_brain_cloud)
+
     match = commands.add_parser(
         "match", help="play the toy or frozen MaleCNS controller against Stockfish"
     )
@@ -486,6 +533,18 @@ def build_parser() -> argparse.ArgumentParser:
     match_video.add_argument("--fps", type=int, default=30)
     match_video.set_defaults(handler=run_render_match_video)
 
+    flyjack = commands.add_parser(
+        "render-flyjack-video",
+        help="composite the FlyJack-style match with the spiking brain hologram",
+    )
+    flyjack.add_argument("--run-dir", type=Path, required=True)
+    flyjack.add_argument("--plan", type=Path, required=True)
+    flyjack.add_argument("--frames", type=Path, required=True)
+    flyjack.add_argument("--camera", type=Path, required=True)
+    flyjack.add_argument("--data-dir", type=Path, default=Path("data"))
+    flyjack.add_argument("--output", type=Path, required=True)
+    flyjack.set_defaults(handler=run_render_flyjack_video)
+
     plan = commands.add_parser(
         "match-plan",
         help="emit the frame-accurate 3D animation plan for a recorded match",
@@ -494,6 +553,11 @@ def build_parser() -> argparse.ArgumentParser:
     plan.add_argument("--output", type=Path, required=True)
     plan.add_argument("--duration", type=float, default=60.0)
     plan.add_argument("--fps", type=int, default=30)
+    plan.add_argument(
+        "--highlight-plies",
+        default="",
+        help="comma-separated Chessfly plies that get a brain 'think' shot",
+    )
     plan.set_defaults(handler=run_match_plan)
     return parser
 

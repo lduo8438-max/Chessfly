@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import Sequence
 
 import chess
 import numpy as np
@@ -18,7 +19,8 @@ import numpy as np
 from .match_video import _pacing
 
 
-PLAN_SCHEMA_VERSION = 1
+PLAN_SCHEMA_VERSION = 2
+ESTABLISHING_FRAMES = 45
 TRAVEL_SHARE = 0.45
 MINIMUM_TRAVEL_FRAMES = 5
 
@@ -32,8 +34,17 @@ PIECE_NAMES = {
 }
 
 
-def build_plan(run_dir: Path, duration_seconds: float = 60.0, fps: int = 30) -> dict:
-    """Resolve every ply into piece moves, captures and promotions with frames."""
+def build_plan(
+    run_dir: Path,
+    duration_seconds: float = 60.0,
+    fps: int = 30,
+    highlight_plies: Sequence[int] = (),
+) -> dict:
+    """Resolve every ply into piece moves, captures and promotions with frames.
+
+    `highlight_plies` are one-based Chessfly plies that get a "think" shot: the
+    camera turns to the brain and the recorded decision plays out in full.
+    """
     if duration_seconds <= 0 or fps <= 0:
         raise ValueError("duration and fps must be positive")
     run_dir = Path(run_dir)
@@ -47,7 +58,14 @@ def build_plan(run_dir: Path, duration_seconds: float = 60.0, fps: int = 30) -> 
     manifest = json.loads((run_dir / "run.json").read_text(encoding="utf-8"))
 
     total_frames = max(1, round(duration_seconds * fps))
-    weights = _pacing(len(records))
+    by_ply = {int(record["ply"]): index for index, record in enumerate(records)}
+    highlights = sorted(set(int(ply) for ply in highlight_plies))
+    for ply in highlights:
+        if ply not in by_ply:
+            raise ValueError(f"highlight ply {ply} is not in this run")
+        if records[by_ply[ply]]["actor"] != "chessfly":
+            raise ValueError(f"highlight ply {ply} is a Stockfish move, not a decision")
+    weights = _pacing(len(records), [by_ply[ply] for ply in highlights])
     bounds = np.concatenate(([0.0], weights)) * total_frames
 
     board = chess.Board()
@@ -141,6 +159,7 @@ def build_plan(run_dir: Path, duration_seconds: float = 60.0, fps: int = 30) -> 
                 "start_frame": start,
                 "land_frame": landing,
                 "end_frame": end,
+                "think": int(record["ply"]) in highlights,
             }
         )
         board.push(move)
@@ -156,10 +175,47 @@ def build_plan(run_dir: Path, duration_seconds: float = 60.0, fps: int = 30) -> 
         "stockfish_elo": int(manifest["stockfish"]["elo"]),
         "chessfly_mode": str(manifest["mode"]),
         "headline_spikes": _headline_spikes(run_dir),
+        "highlight_plies": highlights,
+        "shots": build_shots(plies, total_frames),
         "pieces": pieces,
         "events": events,
         "plies": plies,
     }
+
+
+def build_shots(plies: Sequence[dict], total_frames: int) -> list[dict]:
+    """Cut the timeline into camera shots, merging neighbours that share a shot.
+
+    An establishing overview opens the film, highlighted decisions turn to the
+    brain, the final ply holds on the result, and everything else watches the
+    board.
+    """
+    spans: list[dict] = []
+
+    def add(name: str, start: int, end: int, ply: int | None) -> None:
+        if end <= start:
+            return
+        if spans and spans[-1]["name"] == name and name != "think":
+            spans[-1]["end_frame"] = end
+            return
+        spans.append({"name": name, "start_frame": start, "end_frame": end, "ply": ply})
+
+    for index, ply in enumerate(plies):
+        start, end = int(ply["start_frame"]), int(ply["end_frame"])
+        if index == len(plies) - 1:
+            name = "result"
+        elif ply["think"]:
+            name = "think"
+        else:
+            name = "board"
+        if index == 0:
+            cut = min(end, start + ESTABLISHING_FRAMES)
+            add("overview", start, cut, None)
+            start = cut
+        add(name, start, end, int(ply["ply"]) if name == "think" else None)
+    if spans:
+        spans[-1]["end_frame"] = total_frames
+    return spans
 
 
 def _headline_spikes(run_dir: Path) -> int:
@@ -171,9 +227,18 @@ def _headline_spikes(run_dir: Path) -> int:
 
 
 def write_plan(
-    run_dir: Path, output: Path, duration_seconds: float = 60.0, fps: int = 30
+    run_dir: Path,
+    output: Path,
+    duration_seconds: float = 60.0,
+    fps: int = 30,
+    highlight_plies: Sequence[int] = (),
 ) -> Path:
-    plan = build_plan(run_dir, duration_seconds=duration_seconds, fps=fps)
+    plan = build_plan(
+        run_dir,
+        duration_seconds=duration_seconds,
+        fps=fps,
+        highlight_plies=highlight_plies,
+    )
     output = Path(output)
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(json.dumps(plan, indent=2, sort_keys=True) + "\n", encoding="utf-8")

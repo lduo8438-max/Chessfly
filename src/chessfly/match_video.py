@@ -44,6 +44,7 @@ BOARD_ORIGIN = (1332, 108)
 BRAIN_BOX = (1332, 808, 1852, 948)
 HOLD_PLIES = 4
 HOLD_WEIGHT = 5.0
+THINK_WEIGHT = 8.0
 
 
 def render_match_video(
@@ -128,14 +129,22 @@ def _open_plate(path: Path) -> Image.Image:
     return image if image.size == MASTER else image.resize(MASTER, Image.Resampling.LANCZOS)
 
 
-def _pacing(count: int) -> np.ndarray:
-    """Weight plies so the closing moves hold instead of flashing past."""
+def _pacing(count: int, highlights: Sequence[int] = ()) -> np.ndarray:
+    """Weight plies so highlights and the closing moves hold instead of flashing past.
+
+    `highlights` are zero-based ply indices that get a full "think" beat, long
+    enough for the recorded brain activity to be seen.
+    """
     if count <= 0:
         raise ValueError("a match video needs at least one recorded ply")
     weights = np.ones(count, dtype=np.float64)
     weights[0] = 2.0
     for offset in range(1, min(HOLD_PLIES, count) + 1):
         weights[-offset] = HOLD_WEIGHT
+    for index in highlights:
+        if not 0 <= index < count:
+            raise ValueError(f"highlight ply index {index} is outside the game")
+        weights[index] = max(weights[index], THINK_WEIGHT)
     return np.cumsum(weights) / float(weights.sum())
 
 

@@ -142,6 +142,35 @@ class MatchPlanTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             build_plan(run_dir, 20.0, 30)
 
+    def test_highlights_must_be_neural_decisions_in_the_run(self):
+        run_dir = write_run(self.root / "highlights", ["e2e4", "e7e5", "g1f3", "b8c6"])
+        with self.assertRaises(ValueError):
+            build_plan(run_dir, 20.0, 30, highlight_plies=[2])
+        with self.assertRaises(ValueError):
+            build_plan(run_dir, 20.0, 30, highlight_plies=[9])
+
+    def test_shots_cover_the_timeline_and_turn_to_the_brain_on_highlights(self):
+        moves = ["e2e4", "e7e5", "g1f3", "b8c6", "f1c4", "f8c5", "d2d3", "d7d6"]
+        plan = build_plan(
+            write_run(self.root / "shots", moves), 30.0, 30, highlight_plies=[3, 7]
+        )
+        shots = plan["shots"]
+        self.assertEqual(shots[0]["name"], "overview")
+        self.assertEqual(shots[0]["start_frame"], 0)
+        self.assertEqual(shots[-1]["name"], "result")
+        self.assertEqual(shots[-1]["end_frame"], plan["total_frames"])
+        for earlier, later in zip(shots, shots[1:]):
+            self.assertEqual(earlier["end_frame"], later["start_frame"])
+        self.assertEqual([s["ply"] for s in shots if s["name"] == "think"], [3, 7])
+        think = {p["ply"] for p in plan["plies"] if p["think"]}
+        self.assertEqual(think, {3, 7})
+
+    def test_highlighted_plies_are_given_more_time(self):
+        moves = ["e2e4", "e7e5", "g1f3", "b8c6", "f1c4", "f8c5", "d2d3", "d7d6", "c2c3", "g8f6"]
+        plan = build_plan(write_run(self.root / "time", moves), 30.0, 30, highlight_plies=[5])
+        spans = {p["ply"]: p["end_frame"] - p["start_frame"] for p in plan["plies"]}
+        self.assertGreater(spans[5], 3 * spans[3])
+
     def test_every_event_names_a_real_piece(self):
         plan = self._plan(["e2e4", "d7d5", "e4d5", "d8d5", "b1c3", "d5a5"])
         identifiers = {piece["id"] for piece in plan["pieces"]}
