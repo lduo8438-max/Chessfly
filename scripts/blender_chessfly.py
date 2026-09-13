@@ -44,7 +44,7 @@ def arguments() -> argparse.Namespace:
     parser.add_argument("--preview-frame", type=int, default=220)
     parser.add_argument("--frame-start", type=int)
     parser.add_argument("--frame-end", type=int)
-    parser.add_argument("--yaw", type=float, default=-0.22)
+    parser.add_argument("--pan", type=float, default=1.15)
     return parser.parse_args(raw)
 
 
@@ -69,7 +69,9 @@ def material(
         shader.inputs["Emission Strength"].default_value = emission
     if alpha < 1:
         shader.inputs["Alpha"].default_value = alpha
-        value.surface_render_method = "DITHERED"
+        # BLENDED keeps thin translucent surfaces (wings) clean;
+        # DITHERED speckles them with noise at low alpha.
+        value.surface_render_method = "BLENDED"
     return value
 
 
@@ -220,55 +222,188 @@ def make_raster_image(path: Path, run_dir: Path) -> None:
     image.save()
 
 
-def add_fly(materials: dict[str, bpy.types.Material]) -> bpy.types.Object:
+def _smooth(obj: bpy.types.Object) -> bpy.types.Object:
+    """Smooth-shade a body part so it reads as a fly, not a faceted rock."""
+    shade = getattr(obj.data, "shade_smooth", None)
+    if callable(shade):
+        shade()
+    return obj
+
+
+def _local_ico(
+    name: str,
+    location: tuple[float, float, float],
+    scale: tuple[float, float, float],
+    mat: bpy.types.Material,
+    parent: bpy.types.Object,
+    subdivisions: int = 3,
+    smooth: bool = True,
+) -> bpy.types.Object:
+    """Add an ellipsoid positioned in the parent's local space."""
+    bpy.ops.mesh.primitive_ico_sphere_add(subdivisions=subdivisions, radius=1)
+    obj = bpy.context.object
+    obj.name = name
+    obj.location = location
+    obj.scale = scale
+    obj.data.materials.append(mat)
+    obj.parent = parent
+    if smooth:
+        _smooth(obj)
+    return obj
+
+
+def _local_limb(
+    name: str,
+    start: tuple[float, float, float],
+    end: tuple[float, float, float],
+    radius: float,
+    mat: bpy.types.Material,
+    parent: bpy.types.Object,
+) -> bpy.types.Object:
+    """Add a tapered segment between two points in the parent's local space."""
+    a, b = Vector(start), Vector(end)
+    delta = b - a
+    bpy.ops.mesh.primitive_cone_add(
+        vertices=8, radius1=radius, radius2=radius * 0.62, depth=delta.length
+    )
+    obj = bpy.context.object
+    obj.name = name
+    obj.location = (a + b) / 2
+    obj.rotation_mode = "QUATERNION"
+    obj.rotation_quaternion = delta.to_track_quat("Z", "Y")
+    obj.data.materials.append(mat)
+    obj.parent = parent
+    return obj
+
+
+def add_fly(
+    materials: dict[str, bpy.types.Material],
+    location: tuple[float, float, float] = (0.0, 0.0, 0.0),
+    rotation_z: float = 0.0,
+) -> bpy.types.Object:
+    """Build the fly in its own local frame: head toward +Y, feet at Z = 0.
+
+    Building locally is what lets the fly be placed and turned to face the
+    board; the earlier version baked world coordinates into every part.
+    """
     root = bpy.data.objects.new("Chessfly-low-poly", None)
+    root.location = location
+    root.rotation_euler = (0.0, 0.0, rotation_z)
     bpy.context.collection.objects.link(root)
-    thorax = ico("thorax", (-1.45, -0.2, 1.83), (0.62, 0.46, 0.43), materials["fly"], 2)
-    abdomen = ico("abdomen", (-2.05, -0.12, 1.82), (0.82, 0.38, 0.34), materials["abdomen"], 2)
-    head = ico("head", (-0.91, -0.2, 1.88), (0.43, 0.42, 0.40), materials["head"], 2)
-    for obj in (thorax, abdomen, head):
-        obj.parent = root
+
+    # Abdomen: tapered rather than spherical, so the silhouette reads as a fly.
+    _local_ico("abdomen", (0.0, -0.95, 0.52), (0.36, 0.62, 0.33), materials["abdomen"], root)
+    _local_ico("abdomen-tip", (0.0, -1.50, 0.49), (0.23, 0.32, 0.20), materials["abdomen"], root)
+    for index, offset in enumerate((-1.32, -1.02, -0.70)):
+        band = _local_ico(
+            f"abdomen-band-{index}",
+            (0.0, offset, 0.52),
+            (0.305 + 0.034 * index, 0.042, 0.280 + 0.030 * index),
+            materials["band"],
+            root,
+            subdivisions=2,
+        )
+        band.rotation_euler[0] = 0.06
+    _local_ico("thorax", (0.0, 0.02, 0.60), (0.42, 0.47, 0.41), materials["fly"], root)
+    _local_ico("scutellum", (0.0, -0.37, 0.66), (0.30, 0.19, 0.17), materials["abdomen"], root)
+    _local_ico("neck", (0.0, 0.40, 0.60), (0.22, 0.12, 0.20), materials["head"], root)
+    _local_ico("head", (0.0, 0.62, 0.62), (0.36, 0.31, 0.35), materials["head"], root)
+
     for side in (-1, 1):
-        eye = ico(
+        # Compound eyes wrap the sides of the head instead of sitting on top.
+        eye = _local_ico(
             f"ruby-eye-{side}",
-            (-0.69, -0.2 + side * 0.31, 1.94),
-            (0.26, 0.11, 0.27),
+            (side * 0.24, 0.64, 0.63),
+            (0.21, 0.27, 0.30),
             materials["eye"],
-            2,
+            root,
         )
-        eye.parent = root
-        wing = ico(
-            f"wing-{side}",
-            (-1.72, -0.2 + side * 0.48, 2.18),
-            (1.05, 0.36, 0.045),
-            materials["wing"],
-            2,
-        )
-        wing.rotation_euler[2] = side * 0.16
-        wing.parent = root
-        for frame, angle in ((1, 0.12), (75, 0.19), (150, 0.10), (225, 0.18), (300, 0.12)):
-            wing.rotation_euler[2] = side * angle
-            wing.keyframe_insert("rotation_euler", frame=frame)
-    for index, x in enumerate((-1.05, -1.45, -1.83)):
-        for side in (-1, 1):
-            hip = (x, -0.2 + side * 0.33, 1.75)
-            knee = (x + 0.13 * (index - 1), -0.2 + side * 0.78, 1.48)
-            foot = (x + 0.34 * (index - 1), -0.2 + side * 1.08, 1.29)
-            for segment, start, end in (("upper", hip, knee), ("lower", knee, foot)):
-                leg = cylinder_between(
-                    f"leg-{index}-{side}-{segment}", start, end, 0.035, materials["leg"], 6
-                )
-                leg.parent = root
-    for side in (-1, 1):
-        antenna = cylinder_between(
+        eye.rotation_euler = (0.0, side * 0.30, side * -0.18)
+        _local_limb(
             f"antenna-{side}",
-            (-0.66, -0.2 + side * 0.13, 2.07),
-            (-0.28, -0.2 + side * 0.25, 2.28),
-            0.018,
+            (side * 0.10, 0.84, 0.54),
+            (side * 0.15, 1.00, 0.40),
+            0.026,
             materials["leg"],
-            6,
+            root,
         )
-        antenna.parent = root
+        _local_ico(
+            f"arista-{side}",
+            (side * 0.17, 1.06, 0.35),
+            (0.013, 0.085, 0.013),
+            materials["leg"],
+            root,
+            subdivisions=1,
+            smooth=False,
+        )
+    proboscis = _local_ico(
+        "proboscis", (0.0, 0.70, 0.36), (0.13, 0.14, 0.16), materials["head"], root
+    )
+    proboscis.rotation_euler[0] = 0.55
+
+    # Wings hinge at the top rear of the thorax and sweep back over the abdomen.
+    for side in (-1, 1):
+        hinge = bpy.data.objects.new(f"wing-hinge-{side}", None)
+        hinge.location = (side * 0.20, -0.16, 0.84)
+        bpy.context.collection.objects.link(hinge)
+        hinge.parent = root
+        wing = _local_ico(
+            f"wing-{side}",
+            (side * 0.36, -0.82, 0.06),
+            (0.185, 0.90, 0.014),
+            materials["wing"],
+            hinge,
+            subdivisions=3,
+        )
+        wing.rotation_euler = (0.0, side * -0.09, side * 0.17)
+        for frame, roll, lift in ((1, 0.08, 0.12), (9, 0.40, 0.44), (17, 0.08, 0.12)):
+            hinge.rotation_euler = (side * roll, 0.0, side * -lift)
+            hinge.keyframe_insert("rotation_euler", frame=frame)
+        _local_ico(
+            f"haltere-{side}",
+            (side * 0.26, -0.50, 0.52),
+            (0.045, 0.045, 0.045),
+            materials["leg"],
+            root,
+            subdivisions=2,
+        )
+
+    # Six legs: short and thick enough to carry the body, splayed insect-style.
+    geometry = (
+        (0.30, 0.24, 0.52, 0.46, 0.30, 0.68, 0.66),
+        (0.02, 0.26, 0.60, 0.02, 0.28, 0.78, -0.14),
+        (-0.30, 0.24, 0.60, -0.48, 0.30, 0.80, -0.88),
+    )
+    for index, (hip_y, hip_x, knee_x, knee_y, knee_z, foot_x, foot_y) in enumerate(geometry):
+        for side in (-1, 1):
+            hip = (side * hip_x, hip_y, 0.46)
+            knee = (side * knee_x, knee_y, knee_z)
+            foot = (side * foot_x, foot_y, 0.0)
+            for segment, a, b, radius in (
+                ("femur", hip, knee, 0.058),
+                ("tibia", knee, foot, 0.042),
+            ):
+                _local_limb(
+                    f"leg-{index}-{side}-{segment}", a, b, radius, materials["leg"], root
+                )
+            _local_ico(
+                f"leg-{index}-{side}-joint",
+                knee,
+                (0.058, 0.058, 0.058),
+                materials["leg"],
+                root,
+                subdivisions=2,
+            )
+
+    for index, (bx, by) in enumerate(((0.17, -0.28), (-0.17, -0.28))):
+        _local_limb(
+            f"bristle-{index}",
+            (bx, by, 0.78),
+            (bx * 1.4, by - 0.14, 0.96),
+            0.014,
+            materials["leg"],
+            root,
+        )
     return root
 
 
@@ -540,12 +675,13 @@ def configure_scene(args: argparse.Namespace) -> None:
     mats = {
         "floor": material("floor", INK, metallic=0.48, roughness=0.28),
         "frame": material("monitor-frame", (0.025, 0.045, 0.065, 1), metallic=0.75, roughness=0.22),
-        "fly": material("fly-thorax", STEEL, metallic=0.16, roughness=0.62),
-        "abdomen": material("fly-abdomen", (0.10, 0.15, 0.17, 1), metallic=0.1, roughness=0.62),
-        "head": material("fly-head", (0.16, 0.19, 0.19, 1), metallic=0.1, roughness=0.55),
-        "eye": material("ruby-compound-eyes", (0.35, 0.002, 0.018, 1), metallic=0.15, roughness=0.32, emission=0.35),
-        "wing": material("silver-wings", (0.38, 0.55, 0.62, 1), metallic=0.12, roughness=0.24, alpha=0.42),
-        "leg": material("fly-legs", (0.055, 0.075, 0.078, 1), metallic=0.1, roughness=0.6),
+        "fly": material("fly-thorax", (0.040, 0.055, 0.072, 1), metallic=0.04, roughness=0.54),
+        "abdomen": material("fly-abdomen", (0.018, 0.021, 0.026, 1), metallic=0.04, roughness=0.52),
+        "band": material("fly-tergite", (0.085, 0.062, 0.042, 1), metallic=0.08, roughness=0.40),
+        "head": material("fly-head", (0.032, 0.042, 0.052, 1), metallic=0.04, roughness=0.50),
+        "eye": material("ruby-compound-eyes", (0.42, 0.004, 0.022, 1), metallic=0.20, roughness=0.26, emission=0.9),
+        "wing": material("silver-wings", (0.22, 0.34, 0.42, 1), metallic=0.03, roughness=0.34, alpha=0.12),
+        "leg": material("fly-legs", (0.020, 0.025, 0.028, 1), metallic=0.03, roughness=0.68),
         "board-light": material("board-ivory", (0.47, 0.55, 0.52, 1), roughness=0.42),
         "board-dark": material("board-teal", (0.035, 0.18, 0.21, 1), metallic=0.1, roughness=0.35),
         "piece-white": material("pieces-white", (0.73, 0.77, 0.72, 1), metallic=0.18, roughness=0.3),
@@ -557,9 +693,11 @@ def configure_scene(args: argparse.Namespace) -> None:
     print("[chessfly] materials ready", flush=True)
 
     cube("laboratory-floor", (0, 0, 0), (7.2, 6.2, 0.1), mats["floor"], 0.08)
-    cube("desk", (0, -0.25, 1.05), (4.4, 2.25, 0.18), mats["frame"], 0.12)
+    # The desk reaches further toward the camera so White's side has room for
+    # the fly to sit at the board rather than beside it.
+    cube("desk", (0, -1.15, 1.05), (4.4, 3.3, 0.18), mats["frame"], 0.12)
     for x in (-4.0, 4.0):
-        cube(f"desk-leg-{x}", (x, -0.25, 0.5), (0.13, 1.75, 0.55), mats["frame"], 0.05)
+        cube(f"desk-leg-{x}", (x, -1.15, 0.5), (0.13, 2.6, 0.55), mats["frame"], 0.05)
     print("[chessfly] desk ready", flush=True)
     for x in np.linspace(-5.8, 5.8, 18):
         cube(f"data-column-{x:.2f}", (float(x), 3.8, 2.9), (0.018, 0.025, 2.5), mats["cyan"] if int(abs(x) * 10) % 3 else mats["amber"])
@@ -592,14 +730,17 @@ def configure_scene(args: argparse.Namespace) -> None:
     else:
         add_board(mats)
     print("[chessfly] chessboard ready", flush=True)
-    fly = add_fly(mats)
+    # Chessfly plays White, so it sits behind White's back rank facing the board.
+    fly = add_fly(mats, location=(0.42, -3.30, 1.23), rotation_z=-0.10)
+    fly.scale = (0.62, 0.62, 0.62)
     print("[chessfly] fly ready", flush=True)
-    for frame, z in ((1, 0.0), (80, 0.018), (160, -0.008), (240, 0.015), (300, 0.0)):
-        fly.location.z = z
+    resting = fly.location.z
+    for frame, lift in ((1, 0.0), (60, 0.022), (120, -0.010), (180, 0.018), (240, 0.0)):
+        fly.location.z = resting + lift
         fly.keyframe_insert("location", frame=frame)
     make_cyclic(fly)
     for child in bpy.data.objects:
-        if child.name.startswith("wing-"):
+        if child.name.startswith("wing-hinge-"):
             make_cyclic(child)
 
     for location, energy, color, size in (
@@ -607,7 +748,7 @@ def configure_scene(args: argparse.Namespace) -> None:
         ((3.8, -0.5, 4.1), 700, (1.0, 0.24, 0.10), 4.5),
         ((0.0, 2.0, 5.8), 1150, (0.26, 0.40, 1.0), 5.5),
         # A soft key over the board so the pieces read as solid, not silhouettes.
-        ((0.4, -3.2, 3.5), 620, (0.78, 0.86, 1.0), 3.2),
+        ((0.5, -4.2, 3.4), 240, (0.82, 0.90, 1.0), 3.8),
     ):
         bpy.ops.object.light_add(type="AREA", location=location)
         light = bpy.context.object
@@ -631,25 +772,37 @@ def configure_scene(args: argparse.Namespace) -> None:
     camera.data.dof.aperture_fstop = 2.8
     # One slow orbit across the whole match, yawed so the subject sits in the
     # left two thirds and the overlay panel never covers it.
-    centre = Vector((0.10, -0.35, 1.72))
+    centre = Vector((0.72, -1.50, 1.60))
     steps = max(2, total_frames // 60)
     for step in range(steps + 1):
         frame = 1 + round(step * (total_frames - 1) / steps)
         phase = step / steps
-        angle = math.radians(-114) + phase * math.radians(40)
-        radius = 11.9 - 0.9 * math.sin(phase * math.pi)
-        height = 6.7 - 0.7 * math.sin(phase * math.pi)
-        camera.location = (
-            centre.x + radius * math.cos(angle),
-            centre.y + radius * math.sin(angle),
-            height,
+        angle = math.radians(-126) + phase * math.radians(34)
+        radius = 11.2 - 0.8 * math.sin(phase * math.pi)
+        height = 7.8 - 0.7 * math.sin(phase * math.pi)
+        position = Vector(
+            (
+                centre.x + radius * math.cos(angle),
+                centre.y + radius * math.sin(angle),
+                height,
+            )
         )
-        target = centre + Vector((0.0, 0.0, 0.10 * math.sin(phase * math.tau)))
+        camera.location = position
+        # Pan by aiming beside the subject. Rotating the camera's own Z axis
+        # rolls it, which is what tilted the whole frame before.
+        sight = centre - position
+        sideways = Vector((sight.y, -sight.x, 0.0))
+        if sideways.length > 1e-6:
+            sideways.normalize()
+        target = (
+            centre
+            + sideways * args.pan
+            + Vector((0.0, 0.0, 0.10 * math.sin(phase * math.tau)))
+        )
         look_at(camera, tuple(target))
-        camera.rotation_euler.rotate_axis("Z", args.yaw)
         camera.keyframe_insert("location", frame=frame)
         camera.keyframe_insert("rotation_euler", frame=frame)
-        focus.location = tuple(target)
+        focus.location = tuple(centre)
         focus.keyframe_insert("location", frame=frame)
     print("[chessfly] camera ready", flush=True)
 
