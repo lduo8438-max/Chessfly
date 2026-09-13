@@ -398,8 +398,18 @@ def _scene_overlay(
         + (f", slowed {slow:.0f}×." if slow else ".")
         + "  Not a biological chess brain."
     )
-    draw.text((PANEL[0] - 24, 1004), note, font=_font(13), fill=MUTED, anchor="ra")
-    draw.text((PANEL[0] - 24, 1024), detail, font=_font(13), fill=MUTED, anchor="ra")
+    # The felt is light, so the disclaimer needs its own dark backing to read.
+    font = _font(13)
+    width = max(draw.textlength(note, font=font), draw.textlength(detail, font=font))
+    draw.rounded_rectangle(
+        (PANEL[0] - 38 - width, 992, PANEL[0] - 12, 1042),
+        radius=10,
+        fill=GLASS + (200,),
+        outline=RING,
+        width=1,
+    )
+    draw.text((PANEL[0] - 24, 1004), note, font=font, fill=INK2, anchor="ra")
+    draw.text((PANEL[0] - 24, 1024), detail, font=font, fill=INK2, anchor="ra")
 
 
 def _opponent(run: VideoRun) -> str:

@@ -482,9 +482,21 @@ def _write_audio(path: Path, run: VideoRun, duration: float, sample_rate: int = 
         handle.writeframes(pcm.tobytes())
 
 
+MATE_SCORE = 100000
+MATE_WINDOW = 1000
+
+
 def _evaluation(value: int) -> str:
-    if abs(value) >= 100000:
+    """Format an engine score; mate scores read as mate, not as -999.91 pawns.
+
+    Recorded evaluations use python-chess's `mate_score=100000`, so a forced
+    mate in n moves is stored as +/-(100000 - n) and a delivered mate as 100000.
+    """
+    magnitude = abs(value)
+    if magnitude >= MATE_SCORE:
         return "MATE"
+    if magnitude > MATE_SCORE - MATE_WINDOW:
+        return f"{'-' if value < 0 else ''}M{MATE_SCORE - magnitude}"
     return f"{value / 100:+.2f}"
 
 

@@ -84,11 +84,14 @@ the public post's broad cinematic grammar without copying its assets.
 A second look follows [FlyJack](https://fanpu.io/games/flyjack/) while keeping
 Chessfly's split screen.
 
-- **Staging** — one round green-felt table with a wood rim in darkness, lit by a
-  single warm spotlight with soft shadows; gold serif lettering on the felt.
-  The lamp dims while the brain is on screen.
+- **Staging** — one round grey-white felt table with a wood rim in darkness, lit
+  by a single softly warm spotlight with soft shadows; charcoal serif lettering
+  printed on the felt. The lamp dims while the brain is on screen.
 - **Fly** — the anatomical NeuroMechFly body (FlyGym 1.1.0, Apache-2.0) in its
-  tripod standing pose, seated behind White's back rank facing the board.
+  tripod standing pose, seated behind White's back rank facing the board. The
+  left wing, eye, arista and haltere are mirrored from the right side: FlyGym's
+  MJCF poses assume MuJoCo's inertial mesh re-alignment, and read directly they
+  put the left wing forward past the head and the left eye on top of the right.
 - **Brain** — every MaleCNS brain cell with a recorded soma position drawn as a
   dim point, floating over the fly; the simulated cells flash from recorded
   spikes with a 20 ms decay. Colours: central brain `#3987e5`, mushroom body

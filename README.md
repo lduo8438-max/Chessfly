@@ -179,8 +179,8 @@ allowed to alter it.
 
 ## Render the FlyJack-style match
 
-This look follows [FlyJack](https://fanpu.io/games/flyjack/): a round felt
-table in darkness under one warm lamp, the anatomical NeuroMechFly body at the
+This look follows [FlyJack](https://fanpu.io/games/flyjack/): a round grey-white
+felt table in darkness under one lamp, the anatomical NeuroMechFly body at the
 table, and the fly's brain floating above it as a point cloud that lights up
 with the recorded spikes. The live-board panel keeps the right third.
 

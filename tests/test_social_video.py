@@ -39,6 +39,13 @@ class SocialVideoTests(unittest.TestCase):
         self.assertEqual(_evaluation(36), "+0.36")
         self.assertEqual(_evaluation(-125), "-1.25")
         self.assertEqual(_evaluation(100000), "MATE")
+        self.assertEqual(_evaluation(-100000), "MATE")
+
+    def test_forced_mates_read_as_mate_in_n_not_pawns(self):
+        self.assertEqual(_evaluation(-99991), "-M9")
+        self.assertEqual(_evaluation(99999), "M1")
+        self.assertEqual(_evaluation(-99001), "-M999")
+        self.assertEqual(_evaluation(-98999), "-989.99")
 
     def test_a_capped_run_is_still_called_a_demo(self):
         run = _run([_move(1), _move(2, actor="stockfish")])

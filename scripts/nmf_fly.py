@@ -16,12 +16,21 @@ import xml.etree.ElementTree as ElementTree
 from pathlib import Path
 
 import bpy
-from mathutils import Quaternion, Vector
+from mathutils import Matrix, Quaternion, Vector
 
 
 # FlyGym's mesh assets declare scale="1000 1000 1000": the STLs are in metres
 # and the MJCF lengths are millimetres.
 MESH_SCALE = 1000.0
+
+# MuJoCo re-centres every mesh on its inertial frame when it loads, and FlyGym's
+# MJCF poses were written for those re-aligned meshes.  For thin, jointless,
+# bilateral parts the principal axes can come out flipped on one side, so read
+# straight from the XML the left wing points forward past the head and the left
+# eye lands on top of the right one.  The body is bilaterally symmetric and these
+# parts carry no asymmetric pose, so the left side is rebuilt as the mirror image
+# of the right side across the sagittal plane.
+MIRRORED_FROM_RIGHT = ("Wing", "Eye", "Arista", "Haltere")
 
 
 def _vector(text: str | None, default: tuple[float, ...]) -> tuple[float, ...]:
@@ -139,7 +148,30 @@ def build_neuromechfly(
         raise RuntimeError("MJCF has no FlyBody")
     for child in fly_body.findall("body"):
         build(child, root)
+    _mirror_left_from_right(root)
     return root
+
+
+def _mirror_left_from_right(root: bpy.types.Object) -> None:
+    """Replace each flipped left-side part with the mirror of its right twin."""
+    bpy.context.view_layer.update()
+    to_fly = root.matrix_world.inverted()
+    sagittal = Matrix.Diagonal((1.0, -1.0, 1.0, 1.0))
+    for part in MIRRORED_FROM_RIGHT:
+        left = bpy.data.objects.get(f"nmf-geom-L{part}")
+        right = bpy.data.objects.get(f"nmf-geom-R{part}")
+        if left is None or right is None:
+            continue
+        placement = sagittal @ (to_fly @ right.matrix_world)
+        materials = list(left.data.materials)
+        left.parent = root
+        left.matrix_parent_inverse = Matrix.Identity(4)
+        left.data = right.data.copy()
+        left.data.materials.clear()
+        for material in materials or right.data.materials:
+            left.data.materials.append(material)
+        left.rotation_mode = "QUATERNION"
+        left.matrix_basis = placement
 
 
 def lowest_point(root: bpy.types.Object) -> float:

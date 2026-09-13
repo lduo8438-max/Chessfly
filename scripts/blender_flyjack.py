@@ -86,7 +86,7 @@ def _hex(value: str, alpha: float = 1.0) -> tuple[float, float, float, float]:
 
 
 def felt_material() -> bpy.types.Material:
-    """Green baize: a radial falloff from lit centre to dark rim, with fibre noise."""
+    """Grey-white baize: a radial falloff from lit centre to a greyer rim, with fibre noise."""
     material = bpy.data.materials.new("felt")
     material.use_nodes = True
     nodes, links = material.node_tree.nodes, material.node_tree.links
@@ -98,15 +98,15 @@ def felt_material() -> bpy.types.Material:
     gradient = nodes.new("ShaderNodeTexGradient")
     gradient.gradient_type = "SPHERICAL"
     ramp = nodes.new("ShaderNodeValToRGB")
-    ramp.color_ramp.elements[0].color = _hex("#063a1d")
-    ramp.color_ramp.elements[1].color = _hex("#11703c")
+    ramp.color_ramp.elements[0].color = _hex("#a19e97")
+    ramp.color_ramp.elements[1].color = _hex("#dcdad4")
     noise = nodes.new("ShaderNodeTexNoise")
     noise.inputs["Scale"].default_value = 180.0
     noise.inputs["Detail"].default_value = 6.0
     mix = nodes.new("ShaderNodeMix")
     mix.data_type = "RGBA"
     mix.blend_type = "MULTIPLY"
-    mix.inputs["Factor"].default_value = 0.18
+    mix.inputs["Factor"].default_value = 0.12
     links.new(coords.outputs["Object"], mapping.inputs["Vector"])
     links.new(mapping.outputs["Vector"], gradient.inputs["Vector"])
     links.new(gradient.outputs["Fac"], ramp.inputs["Fac"])
@@ -150,7 +150,7 @@ def add_table(mats: dict) -> None:
 
 
 def add_lettering(mats: dict, plan: dict) -> None:
-    """Gold serif lettering printed on the far side of the felt, FlyJack-style."""
+    """Serif lettering printed on the far side of the felt, FlyJack-style."""
     font = bpy.data.fonts.load(str(SERIF)) if SERIF.exists() else None
     cx, cy = TABLE_CENTRE
     lines = (
@@ -194,7 +194,7 @@ def add_lamp(total_frames: int, shots: list[dict]) -> bpy.types.Object:
     bpy.ops.object.light_add(type="SPOT", location=(cx, cy, LAMP_HEIGHT))
     lamp = bpy.context.object
     lamp.name = "table-lamp"
-    lamp.data.color = (1.0, 0.83, 0.63)
+    lamp.data.color = (1.0, 0.92, 0.83)
     lamp.data.spot_size = math.radians(62)
     lamp.data.spot_blend = 0.75
     lamp.data.shadow_soft_size = 0.7
@@ -359,7 +359,8 @@ def build(args: argparse.Namespace) -> None:
         "rim": base.material("wood-rim", _hex("#3b2314"), roughness=0.45, metallic=0.05),
         "stand": base.material("table-base", _hex("#1c110a"), roughness=0.7),
         "floor": base.material("floor", _hex("#0a0b0c"), roughness=0.92),
-        "gold": base.material("felt-gold", _hex("#ecd6a0"), roughness=0.6, emission=0.25),
+        # Printed ink: charcoal reads on grey-white felt where gold would wash out.
+        "gold": base.material("felt-ink", _hex("#3a3834"), roughness=0.7),
         "board-light": base.material("maple", _hex("#c9a878"), roughness=0.5),
         "board-dark": base.material("walnut", _hex("#4a2e1a"), roughness=0.5),
         "frame": base.material("board-frame", _hex("#24160d"), roughness=0.4, metallic=0.05),
