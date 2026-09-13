@@ -231,6 +231,9 @@ def _manifest(
         "plies": plies,
         "chessfly_color": "white" if chessfly_color else "black",
         "stockfish": asdict(stockfish.config),
+        # Record what was actually sent to the engine: with a skill level set,
+        # the Elo field is carried but never applied.
+        "stockfish_options": getattr(stockfish, "applied_options", None),
     }
 
 

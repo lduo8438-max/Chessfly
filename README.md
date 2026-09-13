@@ -60,6 +60,25 @@ python3 -m venv .venv
 Specify a non-standard Stockfish location with `--stockfish-path`. Each run gets
 its own directory under `runs/` and never overwrites an earlier result.
 
+## Making the opponent weaker than Elo 1320
+
+1320 is Stockfish's own floor for `UCI_Elo`, not a limit this project adds. To
+go below it, leave Elo mode and set a skill level instead:
+
+```bash
+.venv/bin/chessfly match --network male-cns --stockfish-skill 0 --max-plies 400
+```
+
+`--stockfish-skill` takes 0-20. The engine ignores `Skill Level` while
+`UCI_LimitStrength` is on, so the two are mutually exclusive: passing a skill
+level turns Elo limiting off and leaves `--stockfish-elo` unused. `run.json`
+records both the requested config and, under `stockfish_options`, the options
+actually sent to the engine.
+
+The same engine also produces the `evaluation_*_cp` columns, so a weakened
+opponent is also a weaker analyst; those evaluations are indicative, not a
+reference score.
+
 ## Long games, checkpoints and resuming
 
 `match` writes durable state after every ply, so an interrupted long game is not

@@ -17,12 +17,34 @@ class StockfishConfig:
     movetime_ms: int = 50
     threads: int = 1
     hash_mb: int = 64
+    skill_level: Optional[int] = None
 
     def __post_init__(self) -> None:
-        if not 1320 <= self.elo <= 3190:
-            raise ValueError("Stockfish Elo must be between 1320 and 3190")
+        if self.skill_level is None:
+            if not 1320 <= self.elo <= 3190:
+                raise ValueError("Stockfish Elo must be between 1320 and 3190")
+        elif not 0 <= self.skill_level <= 20:
+            raise ValueError("Stockfish skill level must be between 0 and 20")
         if self.movetime_ms <= 0 or self.threads <= 0 or self.hash_mb <= 0:
             raise ValueError("Stockfish resource limits must be positive")
+
+
+def strength_options(config: StockfishConfig) -> dict:
+    """Build the UCI options that actually set playing strength.
+
+    Stockfish ignores `Skill Level` whenever `UCI_LimitStrength` is on, because
+    it derives the internal skill from `UCI_Elo` instead.  The two levers are
+    therefore mutually exclusive, and 1320 is the engine's own Elo floor: going
+    weaker than that means leaving Elo mode for a skill level.
+    """
+    options = {"Threads": config.threads, "Hash": config.hash_mb}
+    if config.skill_level is None:
+        options["UCI_LimitStrength"] = True
+        options["UCI_Elo"] = config.elo
+    else:
+        options["UCI_LimitStrength"] = False
+        options["Skill Level"] = config.skill_level
+    return options
 
 
 class StockfishOpponent:
@@ -35,18 +57,12 @@ class StockfishOpponent:
         self.config = config
         self.path = path
         self.restarts = 0
+        self.applied_options = strength_options(config)
         self.engine = self._spawn()
 
     def _spawn(self) -> chess.engine.SimpleEngine:
         engine = chess.engine.SimpleEngine.popen_uci(self.path)
-        engine.configure(
-            {
-                "Threads": self.config.threads,
-                "Hash": self.config.hash_mb,
-                "UCI_LimitStrength": True,
-                "UCI_Elo": self.config.elo,
-            }
-        )
+        engine.configure(dict(self.applied_options))
         return engine
 
     def restart(self) -> None:

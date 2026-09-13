@@ -199,6 +199,7 @@ def run_match(args: argparse.Namespace) -> int:
         path=args.stockfish_path,
         elo=args.stockfish_elo,
         movetime_ms=args.movetime_ms,
+        skill_level=args.stockfish_skill,
     )
     color = chess.WHITE if args.color == "white" else chess.BLACK
     if args.network == "male-cns":
@@ -399,6 +400,14 @@ def build_parser() -> argparse.ArgumentParser:
     match.add_argument("--data-dir", type=Path, default=Path("data"))
     match.add_argument("--stockfish-path")
     match.add_argument("--stockfish-elo", type=int, default=1320)
+    match.add_argument(
+        "--stockfish-skill",
+        type=int,
+        help=(
+            "play by Skill Level 0-20 instead of Elo; the engine's own Elo floor "
+            "is 1320, and it ignores Skill Level while limiting strength by Elo"
+        ),
+    )
     match.add_argument("--movetime-ms", type=int, default=50)
     match.add_argument("--color", choices=("white", "black"), default="white")
     match.add_argument("--window-ms", type=float, default=500.0)
